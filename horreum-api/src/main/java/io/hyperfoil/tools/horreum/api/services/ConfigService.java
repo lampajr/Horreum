@@ -40,7 +40,7 @@ public interface ConfigService {
 
 
    @GET
-   @Path("datastore/{team}")
+   @Path("datastore/byTeam/{team}")
    @Operation(description="Obtain list of configured datastores for particular team")
    @Parameters(value = {
            @Parameter(name = "team", description = "name of the team to search for defined datastores", example = "perf-team")
