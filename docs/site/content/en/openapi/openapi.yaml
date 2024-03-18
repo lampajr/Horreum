@@ -152,7 +152,7 @@ paths:
       tags:
       - Dataset
       description: "Retrieve a paginated list of Datasets, with total count, by Schema"
-      operationId: listBySchema
+      operationId: listDatasetsBySchema
       parameters:
       - name: uri
         in: query
@@ -261,7 +261,7 @@ paths:
     get:
       tags:
       - Dataset
-      operationId: labelValues
+      operationId: datasetLabelValues
       parameters:
       - name: datasetId
         in: path
@@ -495,7 +495,7 @@ paths:
       - Run
       description: Retrieve a paginated list of Runs with available count for a given
         Schema URI
-      operationId: listBySchema
+      operationId: listRunsBySchema
       parameters:
       - name: uri
         in: query
@@ -806,7 +806,7 @@ paths:
       tags:
       - Run
       description: Upload a new Run
-      operationId: add
+      operationId: addRun
       parameters:
       - name: test
         in: query
@@ -937,7 +937,7 @@ paths:
       tags:
       - Run
       description: Remove access token for Run
-      operationId: dropToken
+      operationId: dropRunToken
       parameters:
       - name: id
         in: path
@@ -959,7 +959,7 @@ paths:
       tags:
       - Run
       description: Get all the label values for the run
-      operationId: labelValues
+      operationId: runLabelValues
       parameters:
       - name: id
         in: path
@@ -1063,7 +1063,7 @@ paths:
       tags:
       - Run
       description: Recalculate Datasets for Run
-      operationId: recalculateDatasets
+      operationId: recalculateDatasetsByRun
       parameters:
       - name: id
         in: path
@@ -1092,7 +1092,7 @@ paths:
       tags:
       - Run
       description: Regenerate access token for Run
-      operationId: resetToken
+      operationId: resetRunToken
       parameters:
       - name: id
         in: path
@@ -1206,7 +1206,7 @@ paths:
       tags:
       - Run
       description: Update the Access configuration for a Run
-      operationId: updateAccess
+      operationId: updateRunAccess
       parameters:
       - name: id
         in: path
@@ -1256,7 +1256,7 @@ paths:
       tags:
       - Schema
       description: Retrieve a paginated list of Schemas with available count
-      operationId: list
+      operationId: listSchemas
       parameters:
       - name: limit
         in: query
@@ -1295,7 +1295,7 @@ paths:
       tags:
       - Schema
       description: Save a new Schema
-      operationId: add
+      operationId: addSchema
       requestBody:
         content:
           application/json:
@@ -1471,7 +1471,7 @@ paths:
       tags:
       - Schema
       description: Delete a Schema by id
-      operationId: delete
+      operationId: deleteSchema
       parameters:
       - name: id
         in: path
@@ -1489,7 +1489,7 @@ paths:
       tags:
       - Schema
       description: Remove access token for schema
-      operationId: dropToken
+      operationId: dropSchemaToken
       parameters:
       - name: id
         in: path
@@ -1529,7 +1529,7 @@ paths:
       tags:
       - Schema
       description: Regenerate access token for schema
-      operationId: resetToken
+      operationId: resetSchemaToken
       parameters:
       - name: id
         in: path
@@ -1552,7 +1552,7 @@ paths:
       tags:
       - Schema
       description: Update the Access configuration for a Schema
-      operationId: updateAccess
+      operationId: updateSchemaAccess
       parameters:
       - name: id
         in: path
@@ -1740,7 +1740,7 @@ paths:
       tags:
       - Test
       description: Retrieve a paginated list of Tests with available count
-      operationId: list
+      operationId: listTests
       parameters:
       - name: roles
         in: query
@@ -1786,7 +1786,7 @@ paths:
       tags:
       - Test
       description: Create a new test
-      operationId: add
+      operationId: addTest
       requestBody:
         content:
           application/json:
@@ -1938,7 +1938,7 @@ paths:
       tags:
       - Test
       description: Delete a Test by id
-      operationId: delete
+      operationId: deleteTest
       parameters:
       - name: id
         in: path
@@ -2193,7 +2193,7 @@ paths:
       tags:
       - Test
       description: Recalculate Datasets for Test
-      operationId: recalculateDatasets
+      operationId: recalculateDatasetsByTest
       parameters:
       - name: id
         in: path
@@ -2211,7 +2211,7 @@ paths:
       tags:
       - Test
       description: Revoke a Token defined for a Test
-      operationId: dropToken
+      operationId: dropTestToken
       parameters:
       - name: id
         in: path
@@ -2288,7 +2288,7 @@ paths:
       tags:
       - Test
       description: Update the Access configuration for a Test
-      operationId: updateAccess
+      operationId: updateTestAccess
       parameters:
       - name: id
         in: path

@@ -42,6 +42,7 @@ release.properties
 # dependencies
 /horreum-web/node_modules
 /horreum-web/node
+/horreum-web/dist
 .pnp
 .pnp.js
 

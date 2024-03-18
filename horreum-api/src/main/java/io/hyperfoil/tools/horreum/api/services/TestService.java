@@ -48,7 +48,7 @@ import java.util.Set;
 public interface TestService {
    @DELETE
    @Path("{id}")
-   @Operation(description="Delete a Test by id")
+   @Operation(description="Delete a Test by id", operationId = "deleteTest")
    void delete(@PathParam("id") int id);
 
    @GET
@@ -67,11 +67,11 @@ public interface TestService {
    Test getByNameOrId(@PathParam("name") String input);
 
    @POST
-   @Operation(description="Create a new test")
+   @Operation(description="Create a new test", operationId = "addTest")
    Test add(@RequestBody(required = true) Test test);
 
    @GET
-   @Operation(description="Retrieve a paginated list of Tests with available count")
+   @Operation(description="Retrieve a paginated list of Tests with available count", operationId = "listTests")
    @Parameters(value = {
            @Parameter(name = "roles", description = "__my, __all or a comma delimited  list of roles", example = "__my"),
            @Parameter(name = "limit", description = "limit the number of results", example = "20"),
@@ -143,7 +143,7 @@ public interface TestService {
 
    @DELETE
    @Path("{id}/revokeToken/{tokenId}")
-   @Operation(description="Revoke a Token defined for a Test")
+   @Operation(description="Revoke a Token defined for a Test", operationId = "dropTestToken")
    @Parameters(value = {
            @Parameter(name = "id", description = "Test ID to revoke token", example = "101"),
            @Parameter(name = "tokenId", description = "ID of token to revoke", example = "202")
@@ -153,7 +153,7 @@ public interface TestService {
    @POST
    @Path("{id}/updateAccess")
    // TODO: it would be nicer to use @FormParams but fetchival on client side doesn't support that
-   @Operation(description="Update the Access configuration for a Test")
+   @Operation(description="Update the Access configuration for a Test", operationId = "updateTestAccess")
    @Parameters(value = {
            @Parameter(name = "id", required = true, description = "Test ID to revoke token", example = "101"),
            @Parameter(name = "owner", required = true, description = "Name of the new owner", example = "perf-team"),
@@ -247,7 +247,7 @@ public interface TestService {
 
    @POST
    @Path("{id}/recalculate")
-   @Operation(description="Recalculate Datasets for Test")
+   @Operation(description="Recalculate Datasets for Test", operationId = "recalculateDatasetsByTest")
    @Parameters(value = {
            @Parameter(name = "id", description = "Test ID to recalculate datasets for", example = "101"),
    })

@@ -129,7 +129,7 @@ function LabelsComparison({headers, datasets, alerting}: LabelsComparisonProps) 
 
     useEffect(() => {
         setLoading(true)
-        Promise.all(datasets.map(ds => datasetApi.labelValues(ds.id).then(values => ({ ...ds, values }))))
+        Promise.all(datasets.map(ds => datasetApi.datasetLabelValues(ds.id).then(values => ({ ...ds, values }))))
             .then(
                 labels => {
                     const rows: any[][] = []

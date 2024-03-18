@@ -100,7 +100,7 @@ public interface RunService {
 
     @GET
     @Path("{id}/labelValues")
-    @Operation(description = "Get all the label values for the run")
+    @Operation(description = "Get all the label values for the run", operationId = "runLabelValues")
     @Parameters(value = {
             @Parameter(name = "id", in =ParameterIn.PATH, description = "Run Id", example = "101"),
             @Parameter(name = "filter", description = "either a required json sub-document or path expression", examples = {
@@ -160,7 +160,7 @@ public interface RunService {
 
     @POST
     @Path("{id}/resetToken")
-    @Operation(description = "Regenerate access token for Run")
+    @Operation(description = "Regenerate access token for Run", operationId = "resetRunToken")
     @Parameters(value = {
             @Parameter(name = "id", description = "Token ID", example = "102"),
     })
@@ -178,7 +178,7 @@ public interface RunService {
 
     @POST
     @Path("{id}/dropToken")
-    @Operation(description = "Remove access token for Run")
+    @Operation(description = "Remove access token for Run", operationId = "dropRunToken")
     @Parameters(value = {
             @Parameter(name = "id", description = "Token ID", example = "102"),
     })
@@ -187,7 +187,7 @@ public interface RunService {
     @POST
     @Path("{id}/updateAccess")
     // TODO: it would be nicer to use @FormParams but fetchival on client side doesn't support that
-    @Operation(description = "Update the Access configuration for a Run")
+    @Operation(description = "Update the Access configuration for a Run", operationId = "updateRunAccess")
     @Parameters(value = {
             @Parameter(name = "id", required = true, description = "Run ID to update Access", example = "101"),
             @Parameter(name = "owner", required = true, description = "Name of the new owner", example = "perf-team"),
@@ -200,7 +200,7 @@ public interface RunService {
     @POST
     @Path("test")
     @Consumes(MediaType.APPLICATION_JSON)
-    @Operation(description = "Upload a new Run")
+    @Operation(description = "Upload a new Run", operationId = "addRun")
     @Parameters(value = {
             @Parameter(name = "test", description = "test name of ID", example = "my-benchmark"),
             @Parameter(name = "owner", description = "Name of the new owner", example = "perf-team"),
@@ -372,7 +372,10 @@ public interface RunService {
 
     @GET
     @Path("bySchema")
-    @Operation(description = "Retrieve a paginated list of Runs with available count for a given Schema URI")
+    @Operation(
+            description = "Retrieve a paginated list of Runs with available count for a given Schema URI",
+            operationId = "listRunsBySchema"
+    )
     @Parameters(value = {
             @Parameter(name = "uri", required = true, description = "Schema URI", example = "uri:my-schema:0.1"),
             @Parameter(name = "limit", description = "limit the number of results", example = "20"),
@@ -429,7 +432,7 @@ public interface RunService {
 
     @POST
     @Path("{id}/recalculate")
-    @Operation(description = "Recalculate Datasets for Run")
+    @Operation(description = "Recalculate Datasets for Run", operationId = "recalculateDatasetsByRun")
     @Parameters(value = {
             @Parameter(name = "id", description = "Run ID", example = "101"),
     })

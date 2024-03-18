@@ -258,7 +258,7 @@ export default function Schema() {
             schema: editorSchema ? JSON.parse(editorSchema) : null,
         } as SchemaDef
 
-        return schemaApi.add(newSchema)
+        return schemaApi.addSchema(newSchema)
             .then(id=>  id,
                 error => alerting.dispatchError(error, "SAVE_SCHEMA", "Failed to save schema")
             ).then(id => setSchemaIdVal(id))

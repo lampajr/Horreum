@@ -76,7 +76,10 @@ public interface DatasetService {
 
    @GET
    @Path("bySchema")
-   @Operation(description="Retrieve a paginated list of Datasets, with total count, by Schema")
+   @Operation(
+           description="Retrieve a paginated list of Datasets, with total count, by Schema",
+           operationId = "listDatasetsBySchema"
+   )
    @Parameters(value = {
            @Parameter(name = "uri", required = true, description = "Schema URI", example = "uri:techempower:0.1"),
            @Parameter(name = "limit", description = "limit the number of results", example = "20"),
@@ -91,6 +94,7 @@ public interface DatasetService {
                             @QueryParam("direction") SortDirection direction);
 
    @GET
+   @Operation(operationId = "datasetLabelValues")
    @Path("{datasetId}/labelValues")
    List<LabelValue> labelValues(@PathParam("datasetId") int datasetId);
 

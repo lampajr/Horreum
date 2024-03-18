@@ -77,7 +77,7 @@ public interface SchemaService {
    @POST
    @Consumes(MediaType.APPLICATION_JSON)
    @Produces(MediaType.APPLICATION_JSON)
-   @Operation(description="Save a new Schema")
+   @Operation(description="Save a new Schema", operationId = "addSchema")
    @APIResponse(responseCode = "200", description = "Import a new Schema",
       content = @Content( schema = @org.eclipse.microprofile.openapi.annotations.media.Schema( type = SchemaType.INTEGER, implementation = Integer.class),
       example = "103")
@@ -85,7 +85,7 @@ public interface SchemaService {
    Integer add(Schema schema);
 
    @GET
-   @Operation(description="Retrieve a paginated list of Schemas with available count")
+   @Operation(description="Retrieve a paginated list of Schemas with available count", operationId = "listSchemas")
    @Parameters(value = {
            @Parameter(name = "limit", description = "limit the number of results", example = "20"),
            @Parameter(name = "page", description = "filter by page number of a paginated list of Schemas", example = "2"),
@@ -109,7 +109,7 @@ public interface SchemaService {
 
    @POST
    @Path("{id}/resetToken")
-   @Operation(description="Regenerate access token for schema")
+   @Operation(description="Regenerate access token for schema", operationId = "resetSchemaToken")
    @Parameters(value = {
            @Parameter(name = "id", description = "Token ID", example = "102"),
    })
@@ -127,7 +127,7 @@ public interface SchemaService {
 
    @DELETE
    @Path("{id}/dropToken")
-   @Operation(description="Remove access token for schema")
+   @Operation(description="Remove access token for schema", operationId = "dropSchemaToken")
    @Parameters(value = {
            @Parameter(name = "id", description = "Token ID", example = "102"),
    })
@@ -136,7 +136,7 @@ public interface SchemaService {
    @POST
    @Path("{id}/updateAccess")
    // TODO: it would be nicer to use @FormParams but fetchival on client side doesn't support that
-   @Operation(description="Update the Access configuration for a Schema")
+   @Operation(description="Update the Access configuration for a Schema", operationId = "updateSchemaAccess")
    @Parameters(value = {
            @Parameter(name = "id", description = "Schema ID to update Access", example = "101"),
            @Parameter(name = "owner", required = true, description = "Name of the new owner", example = "perf-team"),
@@ -148,7 +148,7 @@ public interface SchemaService {
 
    @DELETE
    @Path("{id}")
-   @Operation(description="Delete a Schema by id")
+   @Operation(description="Delete a Schema by id", operationId = "deleteSchema")
    @Parameters(value = {
            @Parameter(name = "id", description = "Schema ID to delete", example = "101"),
    })

@@ -224,7 +224,7 @@ export function addUserOrTeam(id: number, userOrTeam: string, alerting: AlertCon
 }
 
 export function deleteTest(id: number, alerting: AlertContextType) : Promise<void>{
-    return apiCall(testApi._delete(id), alerting, "DELETE_TEST", "Failed to delete test " + id);
+    return apiCall(testApi.deleteTest(id), alerting, "DELETE_TEST", "Failed to delete test " + id);
 }
 export function fetchTestsSummariesByFolder(alertingContext: AlertContextType, direction?: SortDirection, folder?: string, limit?: number, page?: number, roles?: string): Promise<TestListing> {
     return apiCall(testApi.summary(roles, folder, limit, page, direction), alertingContext, "FETCH_TEST_SUMMARY", "Failed to fetch test summary.");
@@ -252,11 +252,11 @@ export function removeUserOrTeam(id: number, userOrTeam: string, alerting: Alert
 }
 
 export function revokeTestToken(testId: number, tokenId: number, alerting: AlertContextType) : Promise<void> {
-    return apiCall(testApi.dropToken(testId, tokenId), alerting, "REVOKE_TOKEN", "Failed to revoke token");
+    return apiCall(testApi.dropTestToken(testId, tokenId), alerting, "REVOKE_TOKEN", "Failed to revoke token");
 }
 
 export function sendTest(test: Test, alerting: AlertContextType): Promise<Test> {
-    return apiCall(testApi.add(test), alerting, "SEND_TEST", "Failed to send test");
+    return apiCall(testApi.addTest(test), alerting, "SEND_TEST", "Failed to send test");
 
 }
 
@@ -266,7 +266,7 @@ export function fetchViews(testId: number, alerting: AlertContextType): Promise<
 }
 
 export function updateAccess(id: number, owner: string, access: Access, alerting: AlertContextType) : Promise<void> {
-    return apiCall(testApi.updateAccess(id, owner, access), alerting, "UPDATE_ACCESS", "Failed to update test access");
+    return apiCall(testApi.updateTestAccess(id, owner, access), alerting, "UPDATE_ACCESS", "Failed to update test access");
 }
 export function updateView(alerting: AlertContextType, testId: number, view: View): Promise<View> {
     for (const c of view.components) {
@@ -357,7 +357,7 @@ export function fetchRunSummary(id: number, token: string | undefined, alerting:
 }
 
 export function recalculateDatasets(id: number, testid: number, alerting: AlertContextType) : Promise<number[]> {
-    return apiCall(runApi.recalculateDatasets(id), alerting, "RECALCULATE_DATASETS", "Failed to recalculate datasets");
+    return apiCall(runApi.recalculateDatasetsByRun(id), alerting, "RECALCULATE_DATASETS", "Failed to recalculate datasets");
 }
 
 export function trash(alerting: AlertContextType, id: number, testid: number, isTrashed = true) : Promise<void> {
@@ -365,7 +365,7 @@ export function trash(alerting: AlertContextType, id: number, testid: number, is
 }
 
 export function updateRunAccess (id: number, testid: number, owner: string, access: Access, alerting: AlertContextType) : Promise<void> {
-    return apiCall(runApi.updateAccess(id, owner, access), alerting, "UPDATE_RUN_ACCESS", "Failed to update run access");
+    return apiCall(runApi.updateRunAccess(id, owner, access), alerting, "UPDATE_RUN_ACCESS", "Failed to update run access");
 }
 export function updateDescription(id: number, testid: number, description: string, alerting: AlertContextType) : Promise<void> {
     return apiCall(runApi.updateDescription(id, description), alerting, "RUN_UPDATE", "Failed to update description for run ID " + id);

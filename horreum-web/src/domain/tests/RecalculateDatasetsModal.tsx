@@ -59,7 +59,7 @@ export default function RecalculateDatasetsModal(props: RecalculateDatasetsModal
                               key="recalculate"
                               onClick={() => {
                                   setProgress(0)
-                                  testApi.recalculateDatasets(props.testId)
+                                  testApi.recalculateDatasetsByTest(props.testId)
                                       .then(() => {
                                           timerId.current = window.setInterval(() => {
                                               testApi.getRecalculationStatus(props.testId)
