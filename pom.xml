@@ -83,6 +83,9 @@
         <commons.math3.version>3.6.1</commons.math3.version>
         <graalvm.version>23.0.3</graalvm.version>
         <quarkus.version>3.6.8</quarkus.version>
+        <!-- https://github.com/advisories/GHSA-24rp-q3w6-vc56
+             This can be removed once we upgrade Quarkus to 3.8.1 or higher -->
+        <postgresql-jdbc.version>42.6.1</postgresql-jdbc.version>
         <quinoa.version>2.3.5</quinoa.version>
         <surefire-plugin.version>3.2.5</surefire-plugin.version>
         <failsafe-plugin.version>3.2.5</failsafe-plugin.version>
@@ -158,6 +161,13 @@
                 <groupId>io.hyperfoil.tools</groupId>
                 <artifactId>horreum-client</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <!-- https://github.com/advisories/GHSA-24rp-q3w6-vc56
+                 This can be removed once we upgrade Quarkus to 3.8.1 or higher -->
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql-jdbc.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.quarkus</groupId>
