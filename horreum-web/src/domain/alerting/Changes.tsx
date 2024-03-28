@@ -42,6 +42,7 @@ import {AppContextType} from "../../context/@types/appContextTypes";
 import {useSelector} from "react-redux";
 
 type TimespanSelectProps = {
+    value?: number
     onChange(span: number): void
 }
 
@@ -68,7 +69,8 @@ const TimespanSelect = (props: TimespanSelectProps) => {
         ],
         []
     )
-    const [selected, setSelected] = useState(options[4])
+    const defaultOption = options.find((t, _) => { return t.seconds === props.value })
+    const [selected, setSelected] = useState(defaultOption ?? options[4])
     return (
         <Select
             isOpen={isExpanded}
@@ -91,6 +93,7 @@ const TimespanSelect = (props: TimespanSelectProps) => {
 }
 
 type LineTypeSelectProps = {
+    value?: string
     onChange(type: string): void
 }
 
@@ -112,7 +115,8 @@ const LineTypeSelect = (props: LineTypeSelectProps) => {
         ],
         []
     )
-    const [selected, setSelected] = useState(options[1])
+    const defaultOption = options.find((l, _) => { return l.type === props.value })
+    const [selected, setSelected] = useState(defaultOption ?? options[1])
     return (
         <Select
             isOpen={isExpanded}
@@ -210,13 +214,12 @@ export default function Changes(props: ChangesProps) {
     const { alerting } = useContext(AppContext) as AppContextType;
     const navigate = useNavigate()
     const params = new URLSearchParams(location.search)
-    // eslint-disable-next-line
-    const paramTest = useMemo(() => params.get("test") || undefined, [])
-    const paramFingerprint = params.get("fingerprint")
     const teams = useSelector(teamsSelector)
-    const newTest = {} as SelectedTest;
-    newTest.id = props.testID
+    const newTest = { id: props.testID } as SelectedTest;
+    // Do we need this? the test id is provided by props therefore it should not change
     const [selectedTest, setSelectedTest] = useState<SelectedTest>(newTest)
+
+    const paramFingerprint = params.get("fingerprint")
     const [selectedFingerprint, setSelectedFingerprint] = useState<FingerprintValue | undefined>(() => {
         if (!paramFingerprint) {
             return undefined
@@ -244,7 +247,7 @@ export default function Changes(props: ChangesProps) {
     const [lineType, setLineType] = useState(params.get("line") || "linear")
 
     const createQuery = (alwaysEndTime: boolean) => {
-        let query = "?test=" + selectedTest
+        let query = ""
         if (selectedFingerprint) {
             query += "&fingerprint=" + encodeURIComponent(JSON.stringify(selectedFingerprint))
         }
@@ -257,14 +260,14 @@ export default function Changes(props: ChangesProps) {
         if (lineType !== "linear") {
             query += "&line=" + lineType
         }
-        return query
+        return "?" + query.replace(/^&/, '');
     }
     useEffect(() => {
         if (!selectedTest) {
             document.title = "Changes | Horreum"
             return
         }
-        document.title = `${selectedTest} | Horreum`
+        document.title = `${selectedTest.id} | Horreum`
         navigate(location.pathname + createQuery(false))
     }, [selectedTest, selectedFingerprint, endTime, timespan, lineType, firstNow, history])
     useEffect(() => {
@@ -345,8 +348,8 @@ export default function Changes(props: ChangesProps) {
                                         }
                                     }}
                                 />
-                                <TimespanSelect onChange={setTimespan} />
-                                <LineTypeSelect onChange={setLineType} />
+                                <TimespanSelect value={timespan} onChange={setTimespan} />
+                                <LineTypeSelect value={lineType} onChange={setLineType} />
                             </div>
                         </div>
                     }
