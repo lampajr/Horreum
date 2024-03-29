@@ -340,6 +340,7 @@ export default function AllTests() {
                 Header: "Actions",
                 id: "actions",
                 accessor: "id",
+                disableSortBy: true,
                 Cell: (arg: C) => {
                     const changeAccess = useChangeAccess({
                         onAccessUpdate: (id: number, owner: string, access: Access) => {

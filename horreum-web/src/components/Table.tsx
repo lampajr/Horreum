@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Bullseye, Skeleton, Spinner } from "@patternfly/react-core"
+import { Table as PfTable, Thead, Tr, Th, Tbody, Td, ThProps } from '@patternfly/react-table';
 import {
     useTable,
     useSortBy,
@@ -15,6 +16,8 @@ import {
 import clsx from "clsx"
 
 import { noop } from "../utils"
+
+type Direction = 'asc' | 'desc' | undefined;
 
 // We need to pass the same empty list to prevent re-renders
 const NO_DATA: Record<string, unknown>[] = []
@@ -51,10 +54,10 @@ function Table<D extends object>({
     onSortBy,
     ...props
 }: TableProps<D>) {
+    const [activeSortIndex, setActiveSortIndex] = useState<number | undefined>(undefined);
+    const [activeSortDirection, setActiveSortDirection] = useState<Direction>(undefined);
     const [currentSortBy, setCurrentSortBy] = useState(sortBy)
-    useEffect(() => {
-        setCurrentSortBy(sortBy)
-    }, [sortBy])
+
     const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow, state } = useTable<D>(
         {
             columns,
@@ -67,10 +70,34 @@ function Table<D extends object>({
         useSortBy,
         useRowSelect
     )
+
+    const getSortParams = (columnIndex: number): ThProps['sort'] => ({
+        sortBy: {
+            index: activeSortIndex ?? undefined,
+            direction: activeSortDirection ?? undefined
+        },
+        onSort: (_event, index, direction) => {
+            // The order is asc -> desc -> reset
+            if (index === activeSortIndex && activeSortDirection === 'desc' && direction === 'asc') {
+                setActiveSortIndex(undefined)
+                setActiveSortDirection(undefined)
+            } else {
+                setActiveSortIndex(index);
+                setActiveSortDirection(direction as 'desc' | 'asc');
+            }
+        },
+        columnIndex
+      });
+
+    useEffect(() => {
+        setCurrentSortBy(sortBy)
+    }, [sortBy])
+
     const rsState = state as UseRowSelectState<D>
     useEffect(() => {
         onSelected(rsState.selectedRowIds)
     }, [rsState.selectedRowIds, onSelected])
+
     const sortState = state as UseSortByState<D>
     useEffect(() => {
         setCurrentSortBy(sortState.sortBy)
@@ -78,30 +105,31 @@ function Table<D extends object>({
             onSortBy(sortState.sortBy)
         }
     }, [sortState.sortBy, onSortBy])
+
     if (isLoading) {
         return (
-            <table className="pf-v5-c-table pf-m-compact pf-m-grid-md" {...getTableProps()}>
-                <thead className="pf-v-c-table__thead">
-                    <tr>
-                        <th className={clsx("pf-v5-c-table__sort")}>
+            <PfTable variant="compact" {...getTableProps()}>
+                <Thead>
+                    <Tr>
+                        <Th className={clsx("pf-v5-c-table__sort")}>
                             <button className="pf-v5-c-button pf-m-plain" type="button">
                                 Loading... <Spinner size="sm" />
                             </button>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
+                        </Th>
+                    </Tr>
+                </Thead>
+                <Tbody>
                     {[...Array(10).keys()].map(i => {
                         return (
-                            <tr key={i}>
-                                <td>
+                            <Tr key={i}>
+                                <Td>
                                     <Skeleton screenreaderText="Loading..." />
-                                </td>
-                            </tr>
+                                </Td>
+                            </Tr>
                         )
                     })}
-                </tbody>
-            </table>
+                </Tbody>
+            </PfTable>
         )
     }
     if (!data) {
@@ -111,58 +139,37 @@ function Table<D extends object>({
             </Bullseye>
         )
     }
+    
     return (
         <>
-            <table className="pf-v5-c-table pf-m-compact pf-m-grid-md" {...getTableProps()}>
-                <thead className="pf-v-c-table__thead">
+            <PfTable variant="compact" {...getTableProps()}>
+                <Thead>
                     {headerGroups.map(headerGroup => {
-                        return (
-                            <tr {...headerGroup.getHeaderGroupProps()} className="pf-v5-c-table__tr">
-                                {headerGroup.headers.map(column => {
-                                    const columnProps = column as unknown as UseSortByColumnProps<D>
-                                    return (
-                                        // Add the sorting props to control sorting. For this example
-                                        // we can add them into the header props
+                            return (
+                                <Tr {...headerGroup.getHeaderGroupProps()}>
+                                    {headerGroup.headers.map((column, idx) => {
+                                        const columnProps = column as unknown as UseSortByColumnProps<D>
+                                        return (
+                                            // Add the sorting props to control sorting. For this example
+                                            // we can add them into the header props
 
-                                        <th
-                                            className={clsx(
-                                                "pf-v5-c-table__th",
-                                                "pf-v5-c-table__sort",
-                                                columnProps.isSorted && "pf-m-selected" || ""
-                                            )}
-                                            {...column.getHeaderProps(columnProps.getSortByToggleProps())}
-                                        >
-                                            <button className="pf-v5-c-button pf-m-plain" type="button">
-                                                <div className="pf-v5-c-table__button-content">
-                                                    {/*removed table__text className to avoid header ellipsis*/}
-                                                    <span className="xpf-v5-c-table__text">{column.render("Header")}</span>
-                                                    {/* Add a sort direction indicator */}
-                                                    {!columnProps.canSort ? (
-                                                        ""
-                                                    ) : (
-                                                        <span className="pf-v5-c-table__sort-indicator">
-                                                            <i
-                                                                className={clsx(
-                                                                    "fas",
-                                                                    columnProps.isSorted
-                                                                        ? columnProps.isSortedDesc
-                                                                            ? "fa-long-arrow-alt-down"
-                                                                            : "fa-long-arrow-alt-up"
-                                                                        : "fa-arrows-alt-v"
-                                                                )}
-                                                            ></i>
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </th>
-                                    )
-                                })}
-                            </tr>
-                        )
-                    })}
-                </thead>
-                <tbody {...getTableBodyProps()} className="pf-v5-c-table__tbody">
+                                            <Th
+                                                className={clsx(
+                                                    "pf-v5-c-table__sort",
+                                                )}
+                                                modifier="wrap"
+                                                sort={columnProps.canSort ? getSortParams(idx) : undefined}
+                                                {...column.getHeaderProps(columnProps.getSortByToggleProps())}
+                                            >
+                                                <span className="xpf-v5-c-table__text pf-m-plain">{column.render("Header")}</span>
+                                            </Th>
+                                        )
+                                    })}
+                                </Tr>
+                            )
+                        })}
+                </Thead>
+                <Tbody {...getTableBodyProps()}>
                     {rows.map(row => {
                         prepareRow(row)
                         const rowProps = row.getRowProps()
@@ -170,19 +177,19 @@ function Table<D extends object>({
                             rowProps.style = { ...rowProps.style, background: "#EEE" }
                         }
                         return (
-                            <tr {...rowProps} className="pf-v5-c-table__tr">
+                            <Tr {...rowProps}>
                                 {row.cells.map(cell => {
                                     return (
-                                        <td data-label={cell.column.Header} {...cell.getCellProps()} className="pf-v5-c-table__td">
+                                        <Td data-label={cell.column.Header} {...cell.getCellProps()}>
                                             {cell.render("Cell")}
-                                        </td>
+                                        </Td>
                                     )
                                 })}
-                            </tr>
+                            </Tr>
                         )
                     })}
-                </tbody>
-            </table>
+                </Tbody>
+            </PfTable>
             <br />
             {(props.showNumberOfRows === undefined || props.showNumberOfRows) && <div>Showing {rows.length} rows</div>}
         </>
