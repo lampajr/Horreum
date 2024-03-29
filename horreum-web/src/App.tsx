@@ -162,8 +162,7 @@ function Main() {
             </MastheadToggle>
             <MastheadMain>
                 <MastheadBrand>
-                    {/* <Brand src={"./logo.png"} alt="Horreum Logo" heights={{ default: '36px' }} /> */}
-                    {/*<Brand alt="Horreum" heights={{default: '36px'}}/>*/}
+                    <Brand src={"/logo.png"} alt="Horreum Logo" heights={{ default: '36px' }} />
                 </MastheadBrand>
             </MastheadMain>
             <MastheadContent>
@@ -180,7 +179,7 @@ function Main() {
     const pageId = 'primary-app-container';
 
 
-    const PageSkipToContent = (
+    const pageSkipToContent = (
         <SkipToContent onClick={(event) => {
             event.preventDefault();
             const primaryContentContainer = document.getElementById(pageId);
@@ -191,7 +190,7 @@ function Main() {
     );
 
 
-    const Navigation = (
+    const navigation = (
         <Nav id="nav-primary-simple" theme="dark">
             <NavList>
                 <NavItem itemId={0}>
@@ -225,10 +224,10 @@ function Main() {
 
     );
 
-    const Sidebar = (
+    const sidebar = (
         <PageSidebar theme="dark">
             <PageSidebarBody>
-                {Navigation}
+                {navigation}
             </PageSidebarBody>
         </PageSidebar>
     );
@@ -239,8 +238,8 @@ function Main() {
             <Page
                 mainContainerId={pageId}
                 header={Header}
-                sidebar={sidebarOpen && Sidebar}
-                skipToContent={PageSkipToContent}>
+                sidebar={sidebarOpen && sidebar}
+                skipToContent={pageSkipToContent}>
 
                 <Alerts/>
                 <Outlet/>
