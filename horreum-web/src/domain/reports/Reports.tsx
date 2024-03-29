@@ -48,8 +48,7 @@ export default function Reports(props: ReportGroup) {
     const [direction, setDirection] = useState<SortDirection>("Descending")
     const pagination = useMemo(() => ({ page, perPage, sort, direction }), [page, perPage, sort, direction])
     const [roles, setRoles] = useState<Team>()
-    const test = {} as SelectedTest
-    test.id = props.testId
+    const test = {id: props.testId} as SelectedTest
 
     const [tableReports, setTableReports] = useState<AllTableReports>()
     const [tableReportsReloadCounter, setTableReportsReloadCounter] = useState(0)
@@ -87,7 +86,7 @@ export default function Reports(props: ReportGroup) {
                     return configId === undefined ? (
                         title
                     ) : (
-                        <NavLink to={`/reports/table/config/${configId}`}>
+                        <NavLink to={`/test/${test.id}/reports/table/config/${configId}`}>
                             {title} <EditIcon />
                         </NavLink>
                     )
@@ -103,7 +102,7 @@ export default function Reports(props: ReportGroup) {
                     if (reports && reports.length > 0) {
                         const last = reports[0]
                         return (
-                            <NavLink to={`/reports/table/${last.id}`}>
+                            <NavLink to={`/test/${test.id}/reports/table/${last.id}`}>
                                 <ArrowRightIcon />
                                 {"\u00A0"}
                                 {formatDateTime(last.created)}
@@ -155,7 +154,7 @@ export default function Reports(props: ReportGroup) {
                     <Flex style={{ width: "100%" }}>
                         {isTester && (
                             <FlexItem>
-                                <ButtonLink to="/reports/table/config/__new">New report configuration</ButtonLink>
+                                <ButtonLink to={`/test/${test.id}/reports/table/config/__new`}>New report configuration</ButtonLink>
                                 <ImportButton
                                     label="Import configuration"
                                     onLoad={config => {

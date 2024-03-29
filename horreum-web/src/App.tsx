@@ -46,6 +46,8 @@ import About from "./About"
 import ContextProvider from "./context/appContext";
 import {ONLY_MY_OWN, Team} from "./components/TeamSelect";
 import {PageHeader, PageHeaderTools} from "@patternfly/react-core/deprecated";
+import TableReportConfigPage from "./domain/reports/TableReportConfigPage";
+import TableReportPage from "./domain/reports/TableReportPage";
 
 const router = createBrowserRouter(
     createRoutesFromElements(
@@ -53,6 +55,8 @@ const router = createBrowserRouter(
             <Route index element={<AllTests/>}/>
             <Route path="/test" element={<AllTests/>}/>
             <Route path="/test/:testId" element={<Test/>}/>
+            <Route path="/test/:testId/reports/table/config/:configId" element={<TableReportConfigPage/>}/>
+            <Route path="/test/:testId/reports/table/:id" element={<TableReportPage/>}/>
 
             {/*<Route path="/run/list/:testId" element={<RunList/>}/>*/}
             {/*<Route path="/run/dataset/list/:testId" element={<TestDatasets/>}/>*/}
@@ -65,8 +69,6 @@ const router = createBrowserRouter(
             {/*<Route path="/changes" element={<Changes testID={1}/>}/>*/}
 
             {/*<Route path="/reports" element={<Reports  testId={1}/>}/>*/}
-            {/*<Route path="/reports/table/config/:configId" element={<TableReportConfigPage/>}/>*/}
-            {/*<Route path="/reports/table/:id" element={<TableReportPage/>}/>*/}
 
             <Route path="/admin" element={<Admin/>}/>
             <Route path="/usersettings" element={<UserSettings/>}/>
