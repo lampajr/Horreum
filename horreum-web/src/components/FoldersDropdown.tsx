@@ -1,12 +1,18 @@
 import { useState} from "react"
 
 import {
+    Badge,
     Dropdown,
-    DropdownItem, MenuToggle, MenuToggleElement,
+    DropdownItem, DropdownList, Icon, MenuToggle, MenuToggleElement,
 } from "@patternfly/react-core"
 
 import * as React from "react";
 
+import CaretDownIcon from '@patternfly/react-icons/dist/esm/icons/caret-down-icon';
+import AngleRightIcon from '@patternfly/react-icons/dist/esm/icons/angle-right-icon';
+import AngleLeftIcon from '@patternfly/react-icons/dist/esm/icons/angle-left-icon';
+
+const ROOT_FOLDER = "Horreum"
 type FoldersDropDownProps = {
     folder: string
     folders : string []
@@ -24,28 +30,52 @@ export default function FoldersDropDown(props: FoldersDropDownProps) {
         setIsOpen(false);
     };
     const dropdownItems: any[] = []
-    dropdownItems.push(<DropdownItem key="action" component="button" onClick={() => props.onChange('')}>
-        Horreum
-    </DropdownItem>)
+    dropdownItems.push(
+        <DropdownItem key={ROOT_FOLDER} onClick={() => props.onChange('')}
+            icon={
+                <Icon>
+                    <AngleLeftIcon/>
+                </Icon>
+            }
+        >
+            {ROOT_FOLDER}
+        </DropdownItem>
+    )
 
     for (const folder of props.folders) {
         if (!folder) continue
-        dropdownItems.push(<DropdownItem key="action" component="button" onClick={() => props.onChange(folder)}>
-            {folder}
-        </DropdownItem>)
+        dropdownItems.push(
+            <DropdownItem key={folder} onClick={() => props.onChange(folder)}
+                icon={
+                    <Icon>
+                        <AngleRightIcon/>
+                    </Icon>
+                }
+            >
+                {folder}
+            </DropdownItem>
+        )
     }
     return (
         <Dropdown
             style={{marginRight: "16px"}}
             onSelect={onSelect}
+            onOpenChange={(isOpen: boolean) => setIsOpen(isOpen)}
             toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                <MenuToggle ref={toggleRef} onClick={onToggle} isExpanded={isOpen}>
-                    Folder
+                <MenuToggle ref={toggleRef} onClick={onToggle} isExpanded={isOpen} variant="plain">
+                    <Badge isRead screenReaderText="selectable folders">
+                        {dropdownItems.length}{' '}
+                        <span>
+                            <CaretDownIcon />
+                        </span>
+                    </Badge>
                 </MenuToggle>
             )}
             isOpen={isOpen}
         >
-            {dropdownItems}
+            <DropdownList>
+                {dropdownItems.map((dropdownItem) => dropdownItem)}
+            </DropdownList>
         </Dropdown>
     )
 }

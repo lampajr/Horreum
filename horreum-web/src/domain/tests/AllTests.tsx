@@ -3,6 +3,9 @@ import {useContext, useEffect, useMemo, useState} from "react"
 import {useSelector} from "react-redux"
 
 import {
+    Breadcrumb,
+    BreadcrumbHeading,
+    BreadcrumbItem,
     Button,
     Card,
     CardBody,
@@ -16,7 +19,7 @@ import {
     Spinner
 } from '@patternfly/react-core';
 import {Dropdown, DropdownItem, DropdownToggle} from '@patternfly/react-core/deprecated';
-import {NavLink, useLocation, useNavigate} from "react-router-dom"
+import {Link, NavLink, useLocation, useNavigate} from "react-router-dom"
 import {EyeIcon, EyeSlashIcon, FolderOpenIcon} from "@patternfly/react-icons"
 
 import Table from "../../components/Table"
@@ -407,11 +410,27 @@ export default function AllTests() {
                 <CardHeader>
                     <Flex>
                         <FlexItem>
+                            <Breadcrumb>
+                                <BreadcrumbItem>
+                                    <Link to={"/test"} onClick={() => setFolder("")}>Tests</Link>
+                                </BreadcrumbItem>
+                                <BreadcrumbItem isDropdown component="a">
+                                    <FoldersDropDown folders={folders} folder={folder} onChange={f => {
+                                        setFolder(f)
+                                        navigate(f ? `/test?folder=${f}` : "/test", { replace: true })
+                                    }}/>
+                                </BreadcrumbItem>
+                                {folder && (
+                                    <BreadcrumbHeading>{folder}</BreadcrumbHeading>
+                                )}
+                            </Breadcrumb>
+                        </FlexItem>
+                        {/* <FlexItem>
                             <FoldersDropDown folders={folders} folder={folder || ""} onChange={f => {
                                 setFolder(f)
                                 navigate(f ? `/test?folder=${f}` : "/test", { replace: true })
                             }}/>
-                        </FlexItem>
+                        </FlexItem> */}
                         {isAuthenticated && (
                             <FlexItem>
                                 {/* <div style={{ width: "200px"}}> not necessary when insidie a FlexItem?*/}
