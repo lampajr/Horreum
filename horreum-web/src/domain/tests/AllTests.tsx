@@ -384,7 +384,12 @@ export default function AllTests() {
 
     const loadTests = () => {
         fetchTestsSummariesByFolder(alerting, SortDirection.Ascending, pagination.folder, pagination.limit, pagination.page, rolesFilter.key, )
-            .then(summary => setTests(summary.tests?.map(t => mapTestSummaryToTest(t)) || []))
+            .then(summary => {
+                setTests(summary.tests?.map(t => mapTestSummaryToTest(t)) || [])
+                if (summary.count) {
+                    setCount(summary.count)
+                }
+            })
         fetchFolders(alerting).then(setFolders)
     }
     useEffect(() => {
