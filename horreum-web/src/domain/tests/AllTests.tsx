@@ -1,4 +1,4 @@
-import {useContext, useEffect, useMemo, useState} from "react"
+import {useContext, useEffect, useMemo, useState, Fragment} from "react"
 
 import {useSelector} from "react-redux"
 
@@ -11,16 +11,30 @@ import {
     CardBody,
     CardFooter,
     CardHeader,
+    ChipGroup,
     Flex,
     FlexItem,
+    MenuGroup,
+    MenuToggle,
+    MenuToggleElement,
     Modal,
     PageSection,
     Pagination,
-    Spinner
+    SearchInput,
+    Select,
+    SelectOption,
+    Spinner,
+    Toolbar,
+    ToolbarChipGroup,
+    ToolbarContent,
+    ToolbarFilter,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup
 } from '@patternfly/react-core';
 import {Dropdown, DropdownItem, DropdownToggle} from '@patternfly/react-core/deprecated';
 import {Link, NavLink, useLocation, useNavigate} from "react-router-dom"
-import {EyeIcon, EyeSlashIcon, FolderOpenIcon} from "@patternfly/react-icons"
+import {EyeIcon, EyeSlashIcon, FolderOpenIcon, FilterIcon} from "@patternfly/react-icons"
 
 import Table from "../../components/Table"
 import ActionMenu, {ActionMenuProps, MenuItem, useChangeAccess} from "../../components/ActionMenu"
@@ -373,6 +387,7 @@ export default function AllTests() {
     )
 
     const [allTests, setTests] = useState<TestStorage[]>([])
+    const [filteredTests, setFilteredTests] = useState<TestStorage[]>(allTests)
     const teams = useSelector(teamsSelector)
     const isAuthenticated = useSelector(isAuthenticatedSelector)
     const [rolesFilter, setRolesFilter] = useState<Team>(ONLY_MY_OWN)
@@ -386,6 +401,22 @@ export default function AllTests() {
 
     const [folders, setFolders] = useState<string[]>([])
 
+    const [inputValue, setInputValue] = useState('');
+    const onNameInput = (event: React.SyntheticEvent<HTMLButtonElement, Event>, value: string, attrValueMap: { [key: string]: string }) => {
+        setInputValue(value);
+    };
+    const onInputChange = (newValue: string) => {
+        setInputValue(newValue);
+    };
+
+    useEffect(() => {
+        const filteredRows = inputValue.length > 0 ? allTests.filter(t => {
+            return t.name.toLowerCase().includes(inputValue)
+        }) : allTests
+
+        setFilteredTests(filteredRows)
+    }, [allTests, inputValue])
+
     const loadTests = () => {
         fetchTestsSummariesByFolder(alerting, SortDirection.Ascending, pagination.folder, pagination.limit, pagination.page, rolesFilter.key, )
             .then(summary => {
@@ -396,6 +427,7 @@ export default function AllTests() {
             })
         fetchFolders(alerting).then(setFolders)
     }
+
     useEffect(() => {
         loadTests()
     } , [isAuthenticated, teams, rolesFilter, pagination])
@@ -405,12 +437,49 @@ export default function AllTests() {
 
     const isTester = useTester()
 
+
     return (
         <PageSection>
+            <Toolbar>
+                <ToolbarContent>
+                    <ToolbarItem>
+                        <Breadcrumb>
+                            <BreadcrumbItem>
+                                <Link to={"/test"} onClick={() => setFolder("")}>Tests</Link>
+                            </BreadcrumbItem>
+                            <BreadcrumbItem isDropdown component="a">
+                                <FoldersDropDown folders={folders} folder={folder} onChange={f => {
+                                    setFolder(f)
+                                    navigate(f ? `/test?folder=${f}` : "/test", { replace: true })
+                                }}/>
+                            </BreadcrumbItem>
+                            {folder && (
+                                <BreadcrumbHeading>{folder}</BreadcrumbHeading>
+                            )}
+                        </Breadcrumb>
+                    </ToolbarItem>
+                </ToolbarContent>
+            </Toolbar>
             <Card>
                 <CardHeader>
                     <Flex>
                         <FlexItem>
+                        <SearchInput
+                            aria-label="name filter"
+                            placeholder="Filter by name..."
+                            onChange={(_event, value) => onInputChange(value)}
+                            value={inputValue}
+                            onClear={() => {onInputChange('');}}
+                            onSearch={onNameInput}
+                        />
+                        </FlexItem>
+                        {/* <FlexItem>
+                            {buildCategoryDropdown()}
+                        </FlexItem>
+                        <FlexItem>
+                            {buildFilterDropdown()}
+                        </FlexItem> */}
+                        {/* <FlexItem>
                             <Breadcrumb>
                                 <BreadcrumbItem>
                                     <Link to={"/test"} onClick={() => setFolder("")}>Tests</Link>
@@ -425,7 +494,7 @@ export default function AllTests() {
                                     <BreadcrumbHeading>{folder}</BreadcrumbHeading>
                                 )}
                             </Breadcrumb>
-                        </FlexItem>
+                        </FlexItem> */}
                         {/* <FlexItem>
                             <FoldersDropDown folders={folders} folder={folder || ""} onChange={f => {
                                 setFolder(f)
@@ -456,7 +525,7 @@ export default function AllTests() {
                 </CardHeader>
                 <CardBody style={{ overflowX: "auto" }}>
                     <Table columns={columns}
-                        data={allTests || []}
+                        data={filteredTests || []}
                         isLoading={loading}
                         sortBy={[{ id: "name", desc: false }]}
 
