@@ -74,4 +74,23 @@ public class Schema extends ProtectedType {
                     '}';
         }
     }
+
+    public static class CreateOrUpdateEvent {
+        public int id;
+        public String uri;
+
+        public CreateOrUpdateEvent() {}
+
+        public CreateOrUpdateEvent(int id, String uri) {
+            this.id = id;
+            this.uri = uri;
+        }
+        @Override
+        public String toString() {
+            return "CreateOrUpdateEvent{" +
+                    "id=" + id +
+                    ", uri=" + uri +
+                    '}';
+        }
+    }
 }
