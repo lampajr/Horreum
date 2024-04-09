@@ -192,8 +192,9 @@ public class SchemaServiceImpl implements SchemaService {
    }
 
    private void newOrUpdatedSchema(SchemaDAO schema) {
-      log.debugf("Push schema event for async run schemas update: %d (%s)", schema.id, schema.uri);
-      Util.registerTxSynchronization(tm, txStatus -> mediator.queueSchemaSync(schema.id));
+      Schema.CreateOrUpdateEvent event = new Schema.CreateOrUpdateEvent(schema.id, schema.uri);
+      log.debugf("Push schema event for async schema synchronization: %s", event);
+      Util.registerTxSynchronization(tm, txStatus -> mediator.queueSchemaSync(event));
    }
 
    private void verifyNewSchema(Schema schemaDTO) {
