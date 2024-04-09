@@ -101,7 +101,29 @@ public class RunServiceImpl implements RunService {
             OR (metadata IS NOT NULL AND ?1 IN (SELECT jsonb_array_elements(metadata)->>'$schema'))
          )
          """;
+   protected static final String FIND_RUNS_WITH_URI_V2 = """
+         SELECT rs.runid, rs.testid, rs.uri
+         FROM run_schemas rs JOIN run r ON rs.runid = r.id AND rs.testid = r.testid
+         WHERE NOT r.trashed
+            AND rs.uri = ?1
+         """;
+
+
+   // find all schemas that does not exist yet for a given run
+   protected static final String FIND_RUN_UNKNOWN_SCHEMAS = """
+
+      """;
+
+   // insert a new record in run_schemas table without schemaid
+   protected static final String INSERT_RUN_SCHEMAS_WITH_NO_SCHEMA_ID = """
+      INSERT INTO run_schemas(runid, testid, source, type, key, uri)
+         (?, ?, ?, ?, ?, ?)
+      """;
+
    //@formatter:on
+
+   // insert new records in the run_schemas for the provided uri and the existing schemas
+   protected static final String UPDATE_RUN_SCHEMAS = "SELECT update_run_schemas(?1)::::text";
    private static final String[] CONDITION_SELECT_TERMINAL = { "==", "!=", "<>", "<", "<=", ">", ">=", " " };
    private static final String UPDATE_TOKEN = "UPDATE run SET token = ? WHERE id = ?";
    private static final String CHANGE_ACCESS = "UPDATE run SET owner = ?, access = ? WHERE id = ?";
@@ -182,26 +204,28 @@ public class RunServiceImpl implements RunService {
    }
 
    void findRunsWithUri(String uri, BiConsumer<Integer, Integer> consumer) {
-      ScrollableResults<RunFromUri> results =
-             session.createNativeQuery(FIND_RUNS_WITH_URI, Tuple.class).setParameter(1, uri)
-                     .setTupleTransformer((tuple, aliases) -> {
-                        RunFromUri r = new RunFromUri();
-                        r.id = (int) tuple[0];
-                        r.testId = (int) tuple[1];
-                        return r;
-                     })
-                     .setFetchSize(100)
-                     .scroll(ScrollMode.FORWARD_ONLY);
-      while (results.next()) {
-         RunFromUri r = results.get();
-         consumer.accept( r.id, r.testId);
+      NativeQuery<RunFromUri> query = session.createNativeQuery(FIND_RUNS_WITH_URI_V2, Tuple.class).setParameter(1, uri)
+              .setTupleTransformer((tuple, aliases) -> {
+                 RunFromUri r = new RunFromUri();
+                 r.id = (int) tuple[0];
+                 r.testId = (int) tuple[1];
+                 r.schemaUri = (String) tuple[2];
+                 return r;
+              })
+              .setFetchSize(100);
+
+      try (ScrollableResults<RunFromUri> results = query.scroll(ScrollMode.FORWARD_ONLY)) {
+         while (results.next()) {
+            RunFromUri r = results.get();
+            consumer.accept(r.id, r.testId);
+         }
       }
    }
 
    @WithRoles(extras = Roles.HORREUM_SYSTEM)
    @Transactional
    void onNewOrUpdatedSchemaForRun(int runId, int schemaId) {
-      em.createNativeQuery("SELECT update_run_schemas(?1)::::text").setParameter(1, runId).getSingleResult();
+      em.createNativeQuery(UPDATE_RUN_SCHEMAS).setParameter(1, runId).getSingleResult();
       //clear validation error tables by schemaId
       em.createNativeQuery("DELETE FROM dataset_validationerrors WHERE schema_id = ?1")
               .setParameter(1, schemaId).executeUpdate();
@@ -644,10 +668,14 @@ public class RunServiceImpl implements RunService {
       }
    }
 
-
-
+   /**
+    * Persist a new Run object
+    * @param run Run to persist
+    * @param test Runs' Test parent
+    * @return the new Run's ID
+    */
    private Integer addAuthenticated(RunDAO run, TestDAO test) {
-      // Id will be always generated anew
+      // a new ID will always be generated
       run.id = null;
       //if run.metadata is null on the client, it will be converted to a NullNode, not null...
       if(run.metadata != null && run.metadata.isNull())
@@ -678,6 +706,9 @@ public class RunServiceImpl implements RunService {
             em.merge(run);
          }
          em.flush();
+
+         // run_schemas update for existing schemas is already managed by rs_after_run_update procedure and trigger
+         // FIXME: we need insert records with empty schemaId but filled schemaUri
       } catch (Exception e) {
          log.error("Failed to persist run.", e);
          throw ServiceException.serverError("Failed to persist run");
@@ -1081,7 +1112,7 @@ public class RunServiceImpl implements RunService {
       run.persist();
       onNewOrUpdatedSchemaForRun(run.id, schemaOptional.get().id );
       Map<Integer, String> schemas =
-              session.createNativeQuery("SELECT schemaid AS key, uri AS value FROM run_schemas WHERE runid = ? ORDER BY schemaid", Tuple.class)
+              session.createNativeQuery("SELECT schemaid AS key, uri AS value FROM run_schemas WHERE schemaid IS NOT NULL AND runid = ? ORDER BY schemaid", Tuple.class)
                       .setParameter(1, run.id)
                       .getResultStream()
                       .distinct()
@@ -1427,8 +1458,9 @@ public class RunServiceImpl implements RunService {
       private int testId;
    }
 
-   class RunFromUri {
+   static class RunFromUri {
       private int id;
       private int testId;
+      private String schemaUri;
    }
 }

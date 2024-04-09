@@ -280,5 +280,65 @@ public class SchemaServiceTest extends BaseServiceTest {
 
    }
 
+   @org.junit.jupiter.api.Test
+   public void testCreateSchemaAfterRun() throws InterruptedException {
+      String schemaUri = "urn:unknown:schema";
+      Test test = createTest(createExampleTest("dummy-test"));
 
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasBefore.size());
+
+      // create the schema afterward
+      Schema schema = createSchema("Unknown schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      List<?> runSchemasAfter = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      // two records as the run is an array of two objects, both referencing the same schema
+      assertEquals(2, runSchemasAfter.size());
+   }
+
+   @org.junit.jupiter.api.Test
+   public void testChangeUriForReferencedSchema() {
+      String schemaUri = "urn:dummy:schema";
+      Schema schema = createSchema("Dummy schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      Test test = createTest(createExampleTest("dummy-test"));
+
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(2, runSchemasBefore.size());
+
+      // update the schema uri afterward
+      schema.uri = "urn:new-dummy:schema";
+      Schema updatedSchema = addOrUpdateSchema(schema);
+      assertNotNull(updatedSchema);
+      assertEquals(schema.id, updatedSchema.id);
+
+      List<?> runSchemasAfter = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      // two records as the run is an array of two objects, both referencing the same schema
+      assertEquals(0, runSchemasAfter.size());
+   }
 }

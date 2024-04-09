@@ -174,9 +174,10 @@ public class SchemaServiceImpl implements SchemaService {
             //We need to delete from run_schemas and dataset_schemas as they will be recreated
             //when we create new datasets psql will still create new entries in dataset_schemas
             // https://github.com/Hyperfoil/Horreum/blob/master/horreum-backend/src/main/resources/db/changeLog.xml#L2522
-            em.createNativeQuery("DELETE FROM run_schemas WHERE schemaid = ?1")
-                    .setParameter(1, schema.id).executeUpdate();
             em.createNativeQuery("DELETE FROM dataset_schemas WHERE schema_id = ?1")
+                    .setParameter(1, schema.id).executeUpdate();
+            // FIXME this should be removed, otherwise we cannot use run_schemas to fetch run<->schema association
+            em.createNativeQuery("DELETE FROM run_schemas WHERE schemaid = ?1")
                     .setParameter(1, schema.id).executeUpdate();
             mediator.newOrUpdatedSchema(schema);
          }

@@ -4493,4 +4493,9 @@
             WHERE changedetection.id=subquery.newID;
         </sql>
     </changeSet>
+    <changeSet id="120" author="lampajr">
+        <sql>
+            ALTER TABLE run_schemas ALTER COLUMN schemaid DROP NOT NULL;
+        </sql>
+    </changeSet>
 </databaseChangeLog>
