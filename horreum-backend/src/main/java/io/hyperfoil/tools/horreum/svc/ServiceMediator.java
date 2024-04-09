@@ -2,7 +2,11 @@ package io.hyperfoil.tools.horreum.svc;
 
 import io.hyperfoil.tools.horreum.api.alerting.Change;
 import io.hyperfoil.tools.horreum.api.alerting.DataPoint;
-import io.hyperfoil.tools.horreum.api.data.*;
+import io.hyperfoil.tools.horreum.api.data.Action;
+import io.hyperfoil.tools.horreum.api.data.Dataset;
+import io.hyperfoil.tools.horreum.api.data.Run;
+import io.hyperfoil.tools.horreum.api.data.Test;
+import io.hyperfoil.tools.horreum.api.data.TestExport;
 import io.hyperfoil.tools.horreum.api.services.ExperimentService;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.data.ActionDAO;
@@ -82,7 +86,7 @@ public class ServiceMediator {
 
     @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 10000)
     @Channel("schema-sync-out")
-    Emitter<Schema.CreateOrUpdateEvent> schemaEmitter;
+    Emitter<Integer> schemaEmitter;
 
     private Map<AsyncEventChannels, Map<Integer, BlockingQueue<Object>>> events =  new ConcurrentHashMap<>();
 
@@ -168,15 +172,15 @@ public class ServiceMediator {
     }
 
     @Incoming("schema-sync-in")
-    @Blocking(ordered = false, value = "horreum.run.pool")
+    @Blocking(ordered = false, value = "horreum.schema.pool")
     @ActivateRequestContext
-    public void processSchemaSync(Schema.CreateOrUpdateEvent event) {
-        runService.onNewOrUpdatedSchema(event.id);
+    public void processSchemaSync(int schemaId) {
+        runService.onNewOrUpdatedSchema(schemaId);
     }
 
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
-    void queueSchemaSync(Schema.CreateOrUpdateEvent event) {
-        schemaEmitter.send(event);
+    void queueSchemaSync(int schemaId) {
+        schemaEmitter.send(schemaId);
     }
 
     void dataPointsProcessed(DataPoint.DatasetProcessedEvent event) {
