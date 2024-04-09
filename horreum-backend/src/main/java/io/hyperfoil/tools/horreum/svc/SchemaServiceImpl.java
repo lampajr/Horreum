@@ -178,23 +178,17 @@ public class SchemaServiceImpl implements SchemaService {
                     .setParameter(1, schema.id).executeUpdate();
             em.createNativeQuery("DELETE FROM dataset_schemas WHERE schema_id = ?1")
                     .setParameter(1, schema.id).executeUpdate();
-            newOrUpdatedSchema(schema);
+            mediator.newOrUpdatedSchema(schema);
          }
       }
       else {
          schema.id = null;
          schema.persist();
          em.flush();
-         newOrUpdatedSchema(schema);
+         mediator.newOrUpdatedSchema(schema);
       }
       log.debugf("Added schema %s (%d), URI %s", schema.name, schema.id, schema.uri);
       return schema.id;
-   }
-
-   private void newOrUpdatedSchema(SchemaDAO schema) {
-      Schema.CreateOrUpdateEvent event = new Schema.CreateOrUpdateEvent(schema.id, schema.uri);
-      log.debugf("Push schema event for async schema synchronization: %s", event);
-      Util.registerTxSynchronization(tm, txStatus -> mediator.queueSchemaSync(event));
    }
 
    private void verifyNewSchema(Schema schemaDTO) {

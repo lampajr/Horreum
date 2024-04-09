@@ -15,6 +15,5 @@ public enum AsyncEventChannels {
     RUN_VALIDATED,
     CHANGE_NEW,
     EXPERIMENT_RESULT_NEW,
-    SCHEMA_SYNC,
     FOOBAR
 }
