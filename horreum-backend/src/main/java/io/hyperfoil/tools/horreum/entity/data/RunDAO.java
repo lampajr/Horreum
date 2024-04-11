@@ -5,18 +5,10 @@ import io.hyperfoil.tools.horreum.entity.ValidationErrorDAO;
 
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -67,6 +59,24 @@ public class RunDAO extends ProtectedBaseEntity {
    @ElementCollection
    public Collection<ValidationErrorDAO> validationErrors;
 
+   @OneToMany(mappedBy = "id.run", cascade = CascadeType.ALL, orphanRemoval = true)
+   public Collection<RunSchemasDAO> schemas = new ArrayList<>();
+
+   public void addSchema(SchemaDAO schema, String key, Integer type, Integer source) {
+      RunSchemasDAO rs = new RunSchemasDAO();
+      RunSchemasDAO.RunSchemasId rsId = new RunSchemasDAO.RunSchemasId();
+      rsId.run = this;
+      rsId.uri = schema.uri;
+      rsId.testId = this.testid;
+      rsId.key = key;
+      rsId.type = type;
+      rsId.source = source;
+
+      rs.id = rsId;
+      rs.schema = schema;
+      schemas.add(rs);
+   }
+
    @Override
    public String toString() {
       return "RunDAO{" +
@@ -80,6 +90,7 @@ public class RunDAO extends ProtectedBaseEntity {
               ", trashed=" + trashed +
               ", datasets=" + datasets +
               ", validationErrors=" + validationErrors +
+              ", schemas=" + schemas +
               '}';
    }
 }

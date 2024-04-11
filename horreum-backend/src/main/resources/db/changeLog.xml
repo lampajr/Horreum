@@ -4493,4 +4493,17 @@
             WHERE changedetection.id=subquery.newID;
         </sql>
     </changeSet>
+    <changeSet id="120" author="lampajr">
+        <validCheckSum>ANY</validCheckSum>
+        <sql>
+            DROP FUNCTION IF EXISTS update_run_schemas();
+
+<!--            DROP TRIGGER IF EXISTS rs_after_run_update ON run;-->
+<!--            DROP TRIGGER IF EXISTS rs_after_run_untrash ON run;-->
+<!--            DROP FUNCTION IF EXISTS rs_after_run_update();-->
+
+            DROP TRIGGER IF EXISTS before_schema_update ON schema;
+            DROP FUNCTION IF EXISTS before_schema_update_func();
+        </sql>
+    </changeSet>
 </databaseChangeLog>

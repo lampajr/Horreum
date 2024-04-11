@@ -15,9 +15,11 @@ import io.hyperfoil.tools.horreum.api.data.Schema;
 import io.hyperfoil.tools.horreum.api.data.SchemaExport;
 import io.hyperfoil.tools.horreum.api.data.Transformer;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
+import io.hyperfoil.tools.horreum.entity.alerting.DataPointDAO;
 import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
 import io.hyperfoil.tools.horreum.entity.data.LabelDAO;
 import io.hyperfoil.tools.horreum.entity.data.RunDAO;
+import io.hyperfoil.tools.horreum.entity.data.RunSchemasDAO;
 import io.hyperfoil.tools.horreum.entity.data.SchemaDAO;
 import io.hyperfoil.tools.horreum.entity.data.TransformerDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
@@ -174,8 +176,7 @@ public class SchemaServiceImpl implements SchemaService {
             //We need to delete from run_schemas and dataset_schemas as they will be recreated
             //when we create new datasets psql will still create new entries in dataset_schemas
             // https://github.com/Hyperfoil/Horreum/blob/master/horreum-backend/src/main/resources/db/changeLog.xml#L2522
-            em.createNativeQuery("DELETE FROM run_schemas WHERE schemaid = ?1")
-                    .setParameter(1, schema.id).executeUpdate();
+            RunSchemasDAO.delete("schema.id = ?1", schema.id);
             em.createNativeQuery("DELETE FROM dataset_schemas WHERE schema_id = ?1")
                     .setParameter(1, schema.id).executeUpdate();
             mediator.newOrUpdatedSchema(schema);

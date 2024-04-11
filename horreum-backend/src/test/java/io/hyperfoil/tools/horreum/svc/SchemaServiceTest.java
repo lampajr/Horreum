@@ -31,6 +31,7 @@ import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.oidc.server.OidcWiremockTestResource;
 import io.restassured.common.mapper.TypeRef;
 import jakarta.inject.Inject;
+import jakarta.persistence.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInfo;
 
@@ -280,5 +281,153 @@ public class SchemaServiceTest extends BaseServiceTest {
 
    }
 
+   @org.junit.jupiter.api.Test
+   public void testCreateSchemaAfterRunWithArrayData() throws InterruptedException {
+      String schemaUri = "urn:unknown:schema";
+      Test test = createTest(createExampleTest("dummy-test"));
 
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasBefore.size());
+
+      // create the schema afterward
+      Schema schema = createSchema("Unknown schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      // two records as the run is an array of two objects, both referencing the same schema
+      RunDAO run = RunDAO.findById(runId);
+      assertEquals(2, run.schemas.size());
+      List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(2, runSchemas.size());
+   }
+
+   @org.junit.jupiter.api.Test
+   public void testCreateSchemaAfterRunWithMultipleSchemas() throws InterruptedException {
+      String firstSchemaUri = "urn:unknown1:schema";
+      String secondSchemaUri = "urn:unknown2:schema";
+      Test test = createTest(createExampleTest("dummy-test"));
+
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", firstSchemaUri).put("foo", "bar");
+      data.addObject().put("$schema", secondSchemaUri).put("foo", "zip");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasBefore.size());
+
+      // create the schema 1 afterward
+      Schema schema1 = createSchema("Unknown schema 1", firstSchemaUri);
+      assertNotNull(schema1);
+      assertTrue(schema1.id > 0);
+
+      List<Tuple> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1", Tuple.class).setParameter(1, runId).getResultList();
+      // 1 record as the run is an array of two objects referencing different schemas and only the first one is created
+      assertEquals(1, runSchemas.size());
+      assertEquals(schema1.id, (int)runSchemas.get(0).get(3));
+   }
+
+   @org.junit.jupiter.api.Test
+   public void testCreateSchemaAfterRunWithObjectData() throws InterruptedException {
+      String schemaUri = "urn:unknown:schema";
+      Test test = createTest(createExampleTest("dummy-test"));
+
+      ObjectNode data = JsonNodeFactory.instance.objectNode();
+      data.put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasBefore.size());
+
+      // create the schema afterward
+      Schema schema = createSchema("Unknown schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      // run has single object data, thus referencing one schema
+      assertEquals(1, runSchemas.size());
+   }
+
+   @org.junit.jupiter.api.Test
+   public void testChangeUriForReferencedSchema() throws InterruptedException {
+      String schemaUri = "urn:dummy:schema";
+      Schema schema = createSchema("Dummy schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      Test test = createTest(createExampleTest("dummy-test"));
+
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(2, runSchemasBefore.size());
+
+      // update the schema uri afterward
+      schema.uri = "urn:new-dummy:schema";
+      Schema updatedSchema = addOrUpdateSchema(schema);
+      assertNotNull(updatedSchema);
+      assertEquals(schema.id, updatedSchema.id);
+
+      RunDAO run = RunDAO.findById(runId);
+      assertEquals(0, run.schemas.size());
+      List<?> runSchemasAfter = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasAfter.size());
+   }
+
+   @org.junit.jupiter.api.Test
+   public void testDeleteSchemaAfterRun() throws InterruptedException {
+      String schemaUri = "urn:dummy:schema";
+      Schema schema = createSchema("Dummy schema", schemaUri);
+      assertNotNull(schema);
+      assertTrue(schema.id > 0);
+
+      Test test = createTest(createExampleTest("dummy-test"));
+
+      ArrayNode data = JsonNodeFactory.instance.arrayNode();
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      data.addObject().put("$schema", schemaUri).put("foo", "bar");
+      int runId = uploadRun(data.toString(), test.name);
+      assertTrue(runId > 0);
+
+      // no validation errors
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM run_validationerrors").getSingleResult());
+      assertEquals(0, em.createNativeQuery("SELECT COUNT(*)::::int FROM dataset_validationerrors").getSingleResult());
+
+      List<?> runSchemasBefore = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(2, runSchemasBefore.size());
+
+      // delete the schema afterward
+      deleteSchema(schema);
+
+      List<?> runSchemasAfter = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId).getResultList();
+      assertEquals(0, runSchemasAfter.size());
+   }
 }

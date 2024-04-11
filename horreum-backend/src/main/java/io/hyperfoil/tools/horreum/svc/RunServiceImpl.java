@@ -18,8 +18,10 @@ import com.fasterxml.jackson.databind.node.*;
 import io.hyperfoil.tools.horreum.api.data.*;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.alerting.DataPointDAO;
+import io.hyperfoil.tools.horreum.entity.data.RunSchemasDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import io.hyperfoil.tools.horreum.mapper.DatasetMapper;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -201,7 +203,7 @@ public class RunServiceImpl implements RunService {
    @WithRoles(extras = Roles.HORREUM_SYSTEM)
    @Transactional
    void onNewOrUpdatedSchemaForRun(int runId, int schemaId) {
-      em.createNativeQuery("SELECT update_run_schemas(?1)::::text").setParameter(1, runId).getSingleResult();
+      updateRunSchemas(runId, schemaId);
       //clear validation error tables by schemaId
       em.createNativeQuery("DELETE FROM dataset_validationerrors WHERE schema_id = ?1")
               .setParameter(1, schemaId).executeUpdate();
@@ -210,6 +212,20 @@ public class RunServiceImpl implements RunService {
 
       Util.registerTxSynchronization(tm, txStatus -> mediator.queueRunRecalculation(runId));
 //      transform(runId, true);
+   }
+
+   private void updateRunSchemas(int runId, int schemaId) {
+      RunDAO run = RunDAO.findById(runId);
+      SchemaDAO schema = SchemaDAO.findById(schemaId);
+      List<Tuple> runSchemas = session.createNativeQuery(RunSchemasDAO.FIND_RUN_SCHEMAS_FROM_RUN_DATA_NATIVE, Tuple.class)
+          .setParameter(1, runId)
+          .getResultList();
+
+      for (Tuple t: runSchemas) {
+         run.addSchema(schema, (String) t.get(4), (int) t.get(5), (int) t.get(6));
+      }
+
+      run.persist();
    }
 
    @PermitAll
@@ -1079,7 +1095,7 @@ public class RunServiceImpl implements RunService {
       run.data = updated;
       trashConnectedDatasets(run.id, run.testid);
       run.persist();
-      onNewOrUpdatedSchemaForRun(run.id, schemaOptional.get().id );
+      onNewOrUpdatedSchemaForRun(run.id, schemaOptional.get().id);
       Map<Integer, String> schemas =
               session.createNativeQuery("SELECT schemaid AS key, uri AS value FROM run_schemas WHERE runid = ? ORDER BY schemaid", Tuple.class)
                       .setParameter(1, run.id)
