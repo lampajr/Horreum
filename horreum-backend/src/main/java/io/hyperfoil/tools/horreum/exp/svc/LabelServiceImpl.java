@@ -26,7 +26,7 @@ import java.util.*;
 @ApplicationScoped
 public class LabelServiceImpl implements LabelService {
 
-    private static final String COUNT_TEST_BY_ID_QUERY = "SELECT count(id) FROM exp_test WHERE id = ?1";
+    private static final String COUNT_TEST_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM exp_test WHERE id = ?1)";
 
     @Transactional
     @WithRoles
@@ -308,7 +308,7 @@ public class LabelServiceImpl implements LabelService {
     @WithRoles
     @Transactional
     protected boolean checkTestExists(long id) {
-        return 0 != (Long) em.createNativeQuery(COUNT_TEST_BY_ID_QUERY, Long.class)
+        return (Boolean) em.createNativeQuery(COUNT_TEST_BY_ID_QUERY, Boolean.class)
               .setParameter(1, id)
               .getSingleResult();
     }
