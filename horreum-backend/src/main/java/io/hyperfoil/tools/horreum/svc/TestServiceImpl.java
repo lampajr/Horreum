@@ -93,7 +93,7 @@ public class TestServiceImpl implements TestService {
    protected static final String LABEL_ORDER_STOP= "combined.stop";
    protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
-   private static final String COUNT_TEST_BY_ID_QUERY = "SELECT count(id) FROM test WHERE id = ?1";
+   private static final String COUNT_TEST_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
    protected static final String LABEL_VALUES_QUERY = """
          WITH
          combined as (
@@ -194,7 +194,7 @@ public class TestServiceImpl implements TestService {
    @WithRoles
    @Transactional
    protected boolean checkTestExists(int id) {
-      return 0 != em.createQuery(COUNT_TEST_BY_ID_QUERY, Long.class)
+      return em.createQuery(COUNT_TEST_BY_ID_QUERY, Boolean.class)
             .setParameter(1, id)
             .getSingleResult();
    }
