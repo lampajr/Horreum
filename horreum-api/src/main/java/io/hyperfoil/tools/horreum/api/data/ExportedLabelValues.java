@@ -56,10 +56,10 @@ public class ExportedLabelValues {
             ObjectNode node = (ObjectNode)objects[0];
             Integer runId = Integer.parseInt(objects[1]==null?"-1":objects[1].toString());
             Integer datasetId = Integer.parseInt(objects[2]==null?"-1":objects[2].toString());
-            Instant start = (Instant)objects[3];
-            Instant stop = (Instant)objects[4];
+            // Instant start = (Instant)objects[3];
+            // Instant stop = (Instant)objects[4];
             if(node.isObject()){
-                fps.add(new ExportedLabelValues(LabelValueMap.fromObjectNode(node),runId,datasetId,start,stop));
+                fps.add(new ExportedLabelValues(LabelValueMap.fromObjectNode(node),runId,datasetId,Instant.now(),Instant.now()));
             }else{
                 //TODO alert that something is wrong in the db response
             }

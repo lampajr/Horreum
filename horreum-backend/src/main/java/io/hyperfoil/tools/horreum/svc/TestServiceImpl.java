@@ -91,17 +91,33 @@ public class TestServiceImpl implements TestService {
    protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
    private static final String CHECK_TEST_EXISTS_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
+   // protected static final String LABEL_VALUES_QUERY = """
+   //       WITH
+   //       combined as (
+   //       SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
+   //                FROM dataset
+   //                LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
+   //                LEFT JOIN label ON label.id = lv.label_id
+   //                WHERE dataset.testid = :testId
+   //                   AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+   //                GROUP BY dataset.id, runId
+   //       ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+   //       """;
+
    protected static final String LABEL_VALUES_QUERY = """
          WITH
-         combined as (
-         SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
-                  FROM dataset
-                  LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
-                  LEFT JOIN label ON label.id = lv.label_id
-                  WHERE dataset.testid = :testId
-                     AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
-                  GROUP BY dataset.id, runId
-         ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+         parsed as (
+            SELECT label.name as name, lv.value as value, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
+            FROM dataset
+            LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
+            LEFT JOIN label ON label.id = lv.label_id
+            WHERE dataset.testid = :testId
+               AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+         )
+         SELECT COALESCE(jsonb_object_agg(name, value) FILTER (WHERE name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) as values, runId, datasetId
+         FROM parsed as combined FILTER_PLACEHOLDER group by datasetId, runId
+         ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+         
          """;
 
    protected static final String LABEL_VALUES_SUMMARY_QUERY = """
@@ -833,9 +849,9 @@ public class TestServiceImpl implements TestService {
             .unwrap(NativeQuery.class)
             .addScalar("values", JsonBinaryType.INSTANCE)
             .addScalar("runId", Integer.class)
-            .addScalar("datasetId", Integer.class)
-            .addScalar("start", StandardBasicTypes.INSTANT)
-            .addScalar("stop", StandardBasicTypes.INSTANT);
+            .addScalar("datasetId", Integer.class);
+            // .addScalar("start", StandardBasicTypes.INSTANT)
+            // .addScalar("stop", StandardBasicTypes.INSTANT);
       return ExportedLabelValues.parse(query.getResultList());
    }
 
