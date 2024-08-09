@@ -15,6 +15,7 @@ import java.util.stream.StreamSupport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.*;
+import com.mongodb.client.MongoClient;
 import io.hyperfoil.tools.horreum.api.data.*;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.alerting.DataPointDAO;
@@ -130,12 +131,15 @@ public class RunServiceImpl implements RunService {
 
    @Inject
    ServiceMediator mediator;
+
    @Inject
    BackendResolver backendResolver;
 
-
    @Inject
    Session session;
+
+   @Inject
+   MongoClient mongoClient;
 
    @Transactional
    @WithRoles(extras = Roles.HORREUM_SYSTEM)
