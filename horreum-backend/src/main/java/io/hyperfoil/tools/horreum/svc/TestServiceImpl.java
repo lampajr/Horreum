@@ -91,17 +91,58 @@ public class TestServiceImpl implements TestService {
    protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
    private static final String CHECK_TEST_EXISTS_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
+   // protected static final String LABEL_VALUES_QUERY = """
+   //       WITH
+   //       combined as (
+   //       SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
+   //                FROM dataset
+   //                LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
+   //                LEFT JOIN label ON label.id = lv.label_id
+   //                WHERE dataset.testid = :testId
+   //                   AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+   //                GROUP BY dataset.id, runId
+   //       ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+   //       """;
+
+   // protected static final String LABEL_VALUES_QUERY = """
+   //       WITH
+   //       combined as (
+   //       SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, lv.dataset_id AS datasetId
+   //                FROM label_values lv
+   //                LEFT JOIN label ON label.id = lv.label_id
+   //                WHERE lv.dataset_id in (:datasetIds)
+   //                   AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+   //                GROUP BY lv.dataset_id, lv.runid
+   //       ) select * from combined FILTER_PLACEHOLDER LIMIT_PLACEHOLDER
+   //       """;
+
+   // protected static final String LABEL_VALUES_QUERY = """
+   //       WITH
+   //       datasets as (
+   //       SELECT id, runId, start, stop
+   //                FROM dataset
+   //                WHERE testid = :testId
+   //       ),
+   //       combined as (
+   //       SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, d.runId, d.id AS datasetId
+   //                FROM datasets d
+   //                LEFT JOIN label_values_part lv ON d.id = lv.dataset_id
+   //                LEFT JOIN label ON label.id = lv.label_id
+   //                WHERE (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+   //                GROUP BY d.id, d.runid
+   //       ) select * from combined FILTER_PLACEHOLDER LIMIT_PLACEHOLDER
+   //       """;
+
    protected static final String LABEL_VALUES_QUERY = """
          WITH
          combined as (
-         SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
-                  FROM dataset
-                  LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
+         SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, lv.run_id as runId, lv.dataset_id AS datasetId
+                  from label_values_part lv
                   LEFT JOIN label ON label.id = lv.label_id
-                  WHERE dataset.testid = :testId
+                  WHERE lv.test_id = :testId
                      AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
-                  GROUP BY dataset.id, runId
-         ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+                  GROUP BY lv.dataset_id, lv.run_id
+         ) select * from combined FILTER_PLACEHOLDER LIMIT_PLACEHOLDER
          """;
 
    protected static final String LABEL_VALUES_SUMMARY_QUERY = """
@@ -789,10 +830,14 @@ public class TestServiceImpl implements TestService {
       if (limit != null) {
          limitSql = "limit " + limit + " offset " + limit * Math.max(0, page);
       }
+      // List<Long> datasetIds = (List<Long>) em.createNativeQuery("select id from dataset where testid = :testId")
+      //       .setParameter("testId", testId)
+      //       .getResultList();
+
       String sql = LABEL_VALUES_QUERY
             .replace("FILTER_PLACEHOLDER", filterSql)
             .replace("INCLUDE_EXCLUDE_PLACEHOLDER", includeExcludeSql)
-            .replace("ORDER_PLACEHOLDER", orderSql)
+            // .replace("ORDER_PLACEHOLDER", orderSql)
             .replace("LIMIT_PLACEHOLDER", limitSql);
 
       NativeQuery query = ((NativeQuery) em.createNativeQuery(sql))
@@ -833,10 +878,21 @@ public class TestServiceImpl implements TestService {
             .unwrap(NativeQuery.class)
             .addScalar("values", JsonBinaryType.INSTANCE)
             .addScalar("runId", Integer.class)
-            .addScalar("datasetId", Integer.class)
-            .addScalar("start", StandardBasicTypes.INSTANT)
-            .addScalar("stop", StandardBasicTypes.INSTANT);
-      return ExportedLabelValues.parse(query.getResultList());
+            .addScalar("datasetId", Integer.class);
+            // .addScalar("start", StandardBasicTypes.INSTANT)
+            // .addScalar("stop", StandardBasicTypes.INSTANT);
+
+      List<Object[]> datasets = em.createNativeQuery("select id, start, stop from dataset where testid = :testId")
+            .setParameter("testId", testId)
+            .getResultList();
+
+      Map<Integer, List<Instant>> datasetMap = datasets.stream()
+            .collect(Collectors.toMap(
+                  row -> Integer.parseInt(row[0]==null?"-1":row[0].toString()), // The id (first element) is the key
+                  row -> Arrays.asList((Instant)row[1], (Instant)row[2]) // The start and stop (second and third elements) are the values in a list
+            ));
+
+      return ExportedLabelValues.parse(query.getResultList(), datasetMap);
    }
 
    @Transactional

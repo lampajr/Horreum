@@ -3,7 +3,6 @@ package io.hyperfoil.tools.horreum.svc;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -36,7 +35,6 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.oidc.server.OidcWiremockTestResource;
-import io.restassured.RestAssured;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.response.Response;
 import org.apache.groovy.util.Maps;
@@ -679,7 +677,7 @@ class TestServiceTest extends BaseServiceTest {
                       "Throughput 32 CPU": null,
                       "Quarkus - Kafka_tags": "quarkus-release-startup"}
                   """),10,10, Instant.now(),Instant.now()});
-      List<ExportedLabelValues> values = ExportedLabelValues.parse(toParse);
+      List<ExportedLabelValues> values = ExportedLabelValues.parse(toParse, new HashMap<>());
       assertEquals(1, values.size());
       assertEquals(9, values.get(0).values.size());
       assertEquals("quarkus-release-startup", values.get(0).values.get("job").asText());
@@ -695,7 +693,7 @@ class TestServiceTest extends BaseServiceTest {
                   "Throughput 8 CPU": 141086.29
               }
               """),10,10, Instant.now(),Instant.now()});
-      values = ExportedLabelValues.parse(toParse);
+      values = ExportedLabelValues.parse(toParse, new HashMap<>());
       assertEquals(2, values.size());
       assertEquals(9, values.get(0).values.size());
       assertEquals(7, values.get(1).values.size());
