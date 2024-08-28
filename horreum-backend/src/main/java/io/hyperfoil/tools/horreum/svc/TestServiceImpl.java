@@ -137,12 +137,12 @@ public class TestServiceImpl implements TestService {
          WITH
          combined as (
          SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, lv.run_id as runId, lv.dataset_id AS datasetId
-                  from label_values_part lv
+                  from label_values lv
                   LEFT JOIN label ON label.id = lv.label_id
                   WHERE lv.test_id = :testId
                      AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
                   GROUP BY lv.dataset_id, lv.run_id
-         ) select * from combined FILTER_PLACEHOLDER LIMIT_PLACEHOLDER
+         ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
          """;
 
    protected static final String LABEL_VALUES_SUMMARY_QUERY = """
@@ -837,7 +837,7 @@ public class TestServiceImpl implements TestService {
       String sql = LABEL_VALUES_QUERY
             .replace("FILTER_PLACEHOLDER", filterSql)
             .replace("INCLUDE_EXCLUDE_PLACEHOLDER", includeExcludeSql)
-            // .replace("ORDER_PLACEHOLDER", orderSql)
+            .replace("ORDER_PLACEHOLDER", orderSql)
             .replace("LIMIT_PLACEHOLDER", limitSql);
 
       NativeQuery query = ((NativeQuery) em.createNativeQuery(sql))
