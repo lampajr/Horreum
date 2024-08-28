@@ -4584,47 +4584,47 @@
                 WHERE dataset.id = label_values.dataset_id;
 
             <!-- partition label values -->
-<!--            CREATE TABLE label_values_part (LIKE label_values INCLUDING ALL)-->
-<!--            PARTITION BY RANGE (test_id);-->
+            CREATE TABLE label_values_part (LIKE label_values INCLUDING ALL)
+            PARTITION BY RANGE (test_id);
 
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part TO "${quarkus.datasource.username}";-->
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part TO "${quarkus.datasource.username}";
 
-<!--            CREATE TABLE label_values_part1 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (1) TO (50);-->
-<!--            CREATE TABLE label_values_part2 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (50) TO (100);-->
-<!--            CREATE TABLE label_values_part3 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (100) TO (150);-->
-<!--            CREATE TABLE label_values_part4 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (150) TO (200);-->
-<!--            CREATE TABLE label_values_part5 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (200) TO (250);-->
-<!--            CREATE TABLE label_values_part6 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (250) TO (300);-->
-<!--            CREATE TABLE label_values_part7 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (300) TO (350);-->
-<!--            CREATE TABLE label_values_part8 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (350) TO (400);-->
-<!--            CREATE TABLE label_values_part9 PARTITION OF label_values_part-->
-<!--            FOR VALUES FROM (400) TO (450);-->
+            CREATE TABLE label_values_part1 PARTITION OF label_values_part
+            FOR VALUES FROM (1) TO (50);
+            CREATE TABLE label_values_part2 PARTITION OF label_values_part
+            FOR VALUES FROM (50) TO (100);
+            CREATE TABLE label_values_part3 PARTITION OF label_values_part
+            FOR VALUES FROM (100) TO (150);
+            CREATE TABLE label_values_part4 PARTITION OF label_values_part
+            FOR VALUES FROM (150) TO (200);
+            CREATE TABLE label_values_part5 PARTITION OF label_values_part
+            FOR VALUES FROM (200) TO (250);
+            CREATE TABLE label_values_part6 PARTITION OF label_values_part
+            FOR VALUES FROM (250) TO (300);
+            CREATE TABLE label_values_part7 PARTITION OF label_values_part
+            FOR VALUES FROM (300) TO (350);
+            CREATE TABLE label_values_part8 PARTITION OF label_values_part
+            FOR VALUES FROM (350) TO (400);
+            CREATE TABLE label_values_part9 PARTITION OF label_values_part
+            FOR VALUES FROM (400) TO (450);
 
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part1 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part2 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part3 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part4 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part5 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part6 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part7 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part8 TO "${quarkus.datasource.username}";-->
-<!--            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part9 TO "${quarkus.datasource.username}";-->
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part1 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part2 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part3 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part4 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part5 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part6 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part7 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part8 TO "${quarkus.datasource.username}";
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE label_values_part9 TO "${quarkus.datasource.username}";
 
-<!--            CREATE POLICY lv_part_select ON label_values_part FOR SELECT-->
-<!--                USING (exists(SELECT 1 FROM dataset WHERE dataset.id = dataset_id AND can_view2(access, owner)));-->
-<!--            CREATE POLICY lv_part_insert ON label_values_part FOR INSERT WITH CHECK (has_role('horreum.system'));-->
-<!--            CREATE POLICY lv_part_delete ON label_values_part FOR DELETE-->
-<!--                USING (has_role('horreum.system') OR exists(SELECT 1 FROM dataset WHERE dataset.id = dataset_id AND has_role2(owner, 'tester')));-->
+            CREATE POLICY lv_part_select ON label_values_part FOR SELECT
+                USING (exists(SELECT 1 FROM dataset WHERE dataset.id = dataset_id AND can_view2(access, owner)));
+            CREATE POLICY lv_part_insert ON label_values_part FOR INSERT WITH CHECK (has_role('horreum.system'));
+            CREATE POLICY lv_part_delete ON label_values_part FOR DELETE
+                USING (has_role('horreum.system') OR exists(SELECT 1 FROM dataset WHERE dataset.id = dataset_id AND has_role2(owner, 'tester')));
 
-<!--            INSERT INTO label_Values_part SELECT * FROM label_values;-->
+            INSERT INTO label_Values_part SELECT * FROM label_values;
         </sql>
     </changeSet>
 </databaseChangeLog>

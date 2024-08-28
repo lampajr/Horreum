@@ -137,7 +137,7 @@ public class TestServiceImpl implements TestService {
          WITH
          combined as (
          SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, lv.run_id as runId, lv.dataset_id AS datasetId
-                  from label_values lv
+                  from label_values_part lv
                   LEFT JOIN label ON label.id = lv.label_id
                   WHERE lv.test_id = :testId
                      AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
