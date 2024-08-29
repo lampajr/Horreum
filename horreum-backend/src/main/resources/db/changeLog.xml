@@ -4566,4 +4566,32 @@
             CREATE INDEX idx_label_metrics_partial ON label (id) WHERE metrics = TRUE;
         </sql>
     </changeSet>
+    <changeSet id="123" author="lampajr">
+        <sql>
+            CREATE MATERIALIZED VIEW combined AS (
+            SELECT
+                label.name as name,
+                label.filtering as filtering,
+                label.metrics as metrics,
+                lv.value as value,
+                runId,
+                dataset.id AS datasetId,
+                dataset.start AS start,
+                dataset.stop AS stop,
+                dataset.testid
+            FROM
+                dataset
+            LEFT JOIN
+                label_values lv ON dataset.id = lv.dataset_id
+            LEFT JOIN
+                label ON label.id = lv.label_id
+            );
+
+            GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE combined TO "${quarkus.datasource.username}";
+
+            CREATE INDEX idx_combined_testid ON combined(testid);
+            CREATE INDEX idx_combined_filtering_partial ON combined (name) WHERE filtering = TRUE;
+            CREATE INDEX idx_combined_metrics_partial ON combined (name) WHERE metrics = TRUE;
+        </sql>
+    </changeSet>
 </databaseChangeLog>

@@ -91,19 +91,55 @@ public class TestServiceImpl implements TestService {
    protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
    private static final String CHECK_TEST_EXISTS_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
+   // protected static final String LABEL_VALUES_QUERY = """
+   //       WITH
+   //       combined as (
+   //       SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
+   //                FROM dataset
+   //                LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
+   //                LEFT JOIN label ON label.id = lv.label_id
+   //                WHERE dataset.testid = :testId
+   //                   AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
+   //                GROUP BY dataset.id, runId
+   //       ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+   //       """;
+
    protected static final String LABEL_VALUES_QUERY = """
-         WITH
-         combined as (
-         SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
-                  FROM dataset
-                  LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
-                  LEFT JOIN label ON label.id = lv.label_id
-                  WHERE dataset.testid = :testId
-                     AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
-                  GROUP BY dataset.id, runId
-         ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
+         SELECT
+            COALESCE(jsonb_object_agg(name, value) FILTER (WHERE name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values,
+            runid,
+            datasetid,
+            start,
+            stop
+         FROM combined
+         WHERE testId = :testId
+            AND (name IS NULL OR (:filteringLabels AND filtering) OR (:metricLabels AND metrics))
+            FILTER_PLACEHOLDER
+         GROUP BY datasetid, runId, start, stop
+         ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
          """;
 
+   // String Q = """
+   //
+   // CREATE MATERIALIZED VIEW combined AS (
+   //     SELECT
+   //         label.name as name,
+   //         label.filtering as filtering,
+   //         label.metrics as metrics,
+   //         lv.value as value,
+   //         runId,
+   //         dataset.id AS datasetId,
+   //         dataset.start AS start,
+   //         dataset.stop AS stop,
+   //         dataset.testid
+   //     FROM
+   //         dataset
+   //     LEFT JOIN
+   //         label_values lv ON dataset.id = lv.dataset_id
+   //     LEFT JOIN
+   //         label ON label.id = lv.label_id
+   // )
+   // """;
    protected static final String LABEL_VALUES_SUMMARY_QUERY = """
          SELECT DISTINCT COALESCE(jsonb_object_agg(label.name, lv.value), '{}'::jsonb) AS values
                   FROM dataset
@@ -757,12 +793,12 @@ public class TestServiceImpl implements TestService {
             mutableInclude.removeAll(exclude);
          }
          if(!mutableInclude.isEmpty()) {
-            includeExcludeSql = "AND label.name in :include";
+            includeExcludeSql = "AND name in :include";
          }
       }
       //includeExcludeSql is empty if include did not contain entries after exclude removal
       if(includeExcludeSql.isEmpty() && exclude!=null && !exclude.isEmpty()){
-         includeExcludeSql="AND label.name NOT in :exclude";
+         includeExcludeSql="AND name NOT in :exclude";
       }
 
       if(filterSql.isBlank() && filter != null && !filter.isBlank()){
@@ -798,7 +834,8 @@ public class TestServiceImpl implements TestService {
       NativeQuery query = ((NativeQuery) em.createNativeQuery(sql))
             .setParameter("testId", testId)
             .setParameter("filteringLabels", filtering)
-            .setParameter("metricLabels", metrics);
+            .setParameter("metricLabels", metrics)
+      ;
       if (!filterSql.isEmpty()) {
          if (filterSql.contains(LABEL_VALUES_FILTER_CONTAINS_JSON)) {
             query.setParameter("filter", filterObject, JsonBinaryType.INSTANCE);
