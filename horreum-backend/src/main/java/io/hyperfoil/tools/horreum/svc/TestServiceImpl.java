@@ -58,7 +58,6 @@ import io.hyperfoil.tools.horreum.hibernate.JsonbSetType;
 import io.hyperfoil.tools.horreum.mapper.DatasourceMapper;
 import io.hyperfoil.tools.horreum.mapper.TestMapper;
 import io.hyperfoil.tools.horreum.mapper.TestTokenMapper;
-import io.hyperfoil.tools.horreum.server.EncryptionManager;
 import io.hyperfoil.tools.horreum.server.WithRoles;
 import io.hyperfoil.tools.horreum.server.WithToken;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
@@ -75,38 +74,37 @@ public class TestServiceImpl implements TestService {
     protected static final String WILDCARD = "*";
     //using find and replace because  ASC or DESC cannot be set with a parameter
     //@formatter:off
-   protected static final String FILTER_PREFIX = "WHERE ";
-   protected static final String FILTER_SEPARATOR = " AND ";
-   protected static final String FILTER_BEFORE = " combined.stop < :before";
-   protected static final String FILTER_AFTER = " combined.start > :after";
-   protected static final String LABEL_VALUES_FILTER_CONTAINS_JSON = "combined.values @> :filter";
-   //a solution does exist! https://github.com/spring-projects/spring-data-jpa/issues/2551
-   //use @\\?\\? to turn into a @? in the query
-   protected static final String LABEL_VALUES_FILTER_MATCHES_NOT_NULL = "combined.values @\\?\\? CAST( :filter as jsonpath)"; //"jsonb_path_match(combined.values,CAST( :filter as jsonpath))";
-   //unused atm because we need to either try both PREDICATE and matching jsonpath or differentiate before sending to the DB
-   protected static final String LABEL_VALUES_FILTER_MATCHES_PREDICATE = "combined.values @@ CAST( :filter as jsonpath)";
-   protected static final String LABEL_VALUES_SORT = "";//""jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
+    protected static final String FILTER_PREFIX = "WHERE ";
+    protected static final String FILTER_SEPARATOR = " AND ";
+    protected static final String FILTER_BEFORE = " combined.stop < :before";
+    protected static final String FILTER_AFTER = " combined.start > :after";
+    protected static final String LABEL_VALUES_FILTER_CONTAINS_JSON = "combined.values @> :filter";
+    //a solution does exist! https://github.com/spring-projects/spring-data-jpa/issues/2551
+    //use @\\?\\? to turn into a @? in the query
+    protected static final String LABEL_VALUES_FILTER_MATCHES_NOT_NULL = "combined.values @\\?\\? CAST( :filter as jsonpath)"; //"jsonb_path_match(combined.values,CAST( :filter as jsonpath))";
+    //unused atm because we need to either try both PREDICATE and matching jsonpath or differentiate before sending to the DB
+    protected static final String LABEL_VALUES_FILTER_MATCHES_PREDICATE = "combined.values @@ CAST( :filter as jsonpath)";
+    protected static final String LABEL_VALUES_SORT = "";//""jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
-   protected static final String LABEL_ORDER_PREFIX = "order by ";
-   protected static final String LABEL_ORDER_START= "combined.start";
-   protected static final String LABEL_ORDER_STOP= "combined.stop";
-   protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
+    protected static final String LABEL_ORDER_PREFIX = "order by ";
+    protected static final String LABEL_ORDER_START= "combined.start";
+    protected static final String LABEL_ORDER_STOP= "combined.stop";
+    protected static final String LABEL_ORDER_JSONPATH = "jsonb_path_query(combined.values,CAST( :orderBy as jsonpath))";
 
-   private static final String CHECK_TEST_EXISTS_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
-   protected static final String LABEL_VALUES_QUERY = """
+    private static final String CHECK_TEST_EXISTS_BY_ID_QUERY = "SELECT EXISTS(SELECT 1 FROM test WHERE id = ?1)";
+    protected static final String LABEL_VALUES_QUERY = """
          WITH
          combined as (
-         SELECT COALESCE(jsonb_object_agg(label.name, lv.value) FILTER (WHERE label.name IS NOT NULL INCLUDE_EXCLUDE_PLACEHOLDER), '{}'::jsonb) AS values, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
+         SELECT label.name AS labelName, lv.value AS value, runId, dataset.id AS datasetId, dataset.start AS start, dataset.stop AS stop
                   FROM dataset
                   LEFT JOIN label_values lv ON dataset.id = lv.dataset_id
                   LEFT JOIN label ON label.id = lv.label_id
                   WHERE dataset.testid = :testId
-                     AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics))
-                  GROUP BY dataset.id, runId
+                     AND (label.id IS NULL OR (:filteringLabels AND label.filtering) OR (:metricLabels AND label.metrics)) INCLUDE_EXCLUDE_PLACEHOLDER
          ) select * from combined FILTER_PLACEHOLDER ORDER_PLACEHOLDER LIMIT_PLACEHOLDER
          """;
 
-   protected static final String LABEL_VALUES_SUMMARY_QUERY = """
+    protected static final String LABEL_VALUES_SUMMARY_QUERY = """
          SELECT DISTINCT COALESCE(jsonb_object_agg(label.name, lv.value), '{}'::jsonb) AS values
                   FROM dataset
                   INNER JOIN label_values lv ON dataset.id = lv.dataset_id
@@ -114,7 +112,7 @@ public class TestServiceImpl implements TestService {
                   WHERE dataset.testid = :testId AND label.filtering
                   GROUP BY dataset.id, runId
          """;
-   //@formatter:on
+    //@formatter:on
 
     @Inject
     @Util.FailUnknownProperties
@@ -125,9 +123,6 @@ public class TestServiceImpl implements TestService {
 
     @Inject
     SecurityIdentity identity;
-
-    @Inject
-    EncryptionManager encryptionManager;
 
     @Inject
     ServiceMediator mediator;
@@ -813,13 +808,14 @@ public class TestServiceImpl implements TestService {
                 .replace("ORDER_PLACEHOLDER", orderSql)
                 .replace("LIMIT_PLACEHOLDER", limitSql);
 
-        NativeQuery query = ((NativeQuery) em.createNativeQuery(sql))
+        NativeQuery<Object[]> query = (NativeQuery<Object[]>) (em.createNativeQuery(sql))
                 .setParameter("testId", testId)
                 .setParameter("filteringLabels", filtering)
                 .setParameter("metricLabels", metrics);
+
         if (!filterSql.isEmpty()) {
             if (filterSql.contains(LABEL_VALUES_FILTER_CONTAINS_JSON)) {
-                query.setParameter("filter", filterObject, JsonBinaryType.INSTANCE);
+                query.unwrap(NativeQuery.class).setParameter("filter", filterObject, JsonBinaryType.INSTANCE);
             } else if (filterSql.contains(LABEL_VALUES_FILTER_MATCHES_NOT_NULL)) {
                 query.setParameter("filter", filter);
             }
@@ -848,8 +844,8 @@ public class TestServiceImpl implements TestService {
             query.setParameter("orderBy", sort);
         }
         query
-                .unwrap(NativeQuery.class)
-                .addScalar("values", JsonBinaryType.INSTANCE)
+                .addScalar("labelName", String.class)
+                .addScalar("value", JsonBinaryType.INSTANCE)
                 .addScalar("runId", Integer.class)
                 .addScalar("datasetId", Integer.class)
                 .addScalar("start", StandardBasicTypes.INSTANT)
@@ -874,7 +870,6 @@ public class TestServiceImpl implements TestService {
         List<ObjectNode> filters = query.getResultList();
 
         return filters != null ? filters : new ArrayList<>();
-
     }
 
     @WithRoles

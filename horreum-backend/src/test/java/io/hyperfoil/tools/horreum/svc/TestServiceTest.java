@@ -682,34 +682,31 @@ class TestServiceTest extends BaseServiceTest {
     @org.junit.jupiter.api.Test
     public void testLabelValues() throws JsonProcessingException {
         List<Object[]> toParse = new ArrayList<>();
-        toParse.add(new Object[] { mapper.readTree("""
-                {
-                    "job": "quarkus-release-startup",
-                    "Max RSS": [],
-                    "build-id": null,
-                    "Throughput 1 CPU": null,
-                    "Throughput 2 CPU": null,
-                    "Throughput 4 CPU": null,
-                    "Throughput 8 CPU": null,
-                    "Throughput 32 CPU": null,
-                    "Quarkus - Kafka_tags": "quarkus-release-startup"}
-                """), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(
+                new Object[] { "job", mapper.readTree("\"quarkus-release-startup\""), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Max RSS", mapper.readTree("[]"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "build-id", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 1 CPU", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 2 CPU", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 4 CPU", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 8 CPU", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 32 CPU", mapper.readTree("null"), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Quarkus - Kafka_tags", mapper.readTree("\"quarkus-release-startup\""), 10, 10,
+                Instant.now(), Instant.now() });
         List<ExportedLabelValues> values = ExportedLabelValues.parse(toParse);
         assertEquals(1, values.size());
         assertEquals(9, values.get(0).values.size());
         assertEquals("quarkus-release-startup", values.get(0).values.get("job").asText());
+        assertEquals("null", values.get(0).values.get("Throughput 32 CPU").asText());
 
-        toParse.add(new Object[] { mapper.readTree("""
-                {
-                    "job": "quarkus-release-startup",
-                    "Max RSS": [],
-                    "build-id": null,
-                    "Throughput 1 CPU": 17570.30,
-                    "Throughput 2 CPU": 43105.62,
-                    "Throughput 4 CPU": 84895.13,
-                    "Throughput 8 CPU": 141086.29
-                }
-                """), 10, 10, Instant.now(), Instant.now() });
+        toParse.add(
+                new Object[] { "job", mapper.readTree("\"quarkus-release-startup\""), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Max RSS", mapper.readTree("[]"), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "build-id", mapper.readTree("null"), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 1 CPU", mapper.readTree("17570.30"), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 2 CPU", mapper.readTree("43105.62"), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 4 CPU", mapper.readTree("84895.13"), 10, 11, Instant.now(), Instant.now() });
+        toParse.add(new Object[] { "Throughput 8 CPU", mapper.readTree("141086.29"), 10, 11, Instant.now(), Instant.now() });
         values = ExportedLabelValues.parse(toParse);
         assertEquals(2, values.size());
         assertEquals(9, values.get(0).values.size());
