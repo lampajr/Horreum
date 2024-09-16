@@ -2,6 +2,7 @@ package io.hyperfoil.tools.horreum.svc;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
@@ -33,13 +34,13 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 null,
                 null,
                 false,
+                true,
                 s -> null);
 
         assertEquals("WHERE combined.value @\\?\\? CAST( :filter as jsonpath)", filterDef.sql());
-        assertNull(filterDef.filterObject());
-        assertEquals(1, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter" }, filterDef.names().toArray());
-        assertEquals(0, filterDef.multis().size());
+        assertNull(filterDef.simpleFilterObject());
+        assertEquals(0, filterDef.multiFilterKeys().size());
+        assertEquals(0, filterDef.multiFilterObject().size());
     }
 
     @Test
@@ -49,13 +50,13 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 Instant.now(),
                 null,
                 false,
+                true,
                 s -> null);
 
         assertEquals("WHERE combined.value @\\?\\? CAST( :filter as jsonpath) AND  combined.stop < :before", filterDef.sql());
-        assertNull(filterDef.filterObject());
-        assertEquals(2, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter", "before" }, filterDef.names().toArray());
-        assertEquals(0, filterDef.multis().size());
+        assertNull(filterDef.simpleFilterObject());
+        assertEquals(0, filterDef.multiFilterKeys().size());
+        assertEquals(0, filterDef.multiFilterObject().size());
     }
 
     @Test
@@ -65,13 +66,13 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 null,
                 Instant.now(),
                 false,
+                true,
                 s -> null);
 
         assertEquals("WHERE combined.value @\\?\\? CAST( :filter as jsonpath) AND  combined.start > :after", filterDef.sql());
-        assertNull(filterDef.filterObject());
-        assertEquals(2, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter", "after" }, filterDef.names().toArray());
-        assertEquals(0, filterDef.multis().size());
+        assertNull(filterDef.simpleFilterObject());
+        assertEquals(0, filterDef.multiFilterKeys().size());
+        assertEquals(0, filterDef.multiFilterObject().size());
     }
 
     @Test
@@ -81,15 +82,15 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 Instant.now(),
                 Instant.now(),
                 false,
+                true,
                 s -> null);
 
         assertEquals(
                 "WHERE combined.value @\\?\\? CAST( :filter as jsonpath) AND  combined.stop < :before AND  combined.start > :after",
                 filterDef.sql());
-        assertNull(filterDef.filterObject());
-        assertEquals(3, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter", "before", "after" }, filterDef.names().toArray());
-        assertEquals(0, filterDef.multis().size());
+        assertNull(filterDef.simpleFilterObject());
+        assertEquals(0, filterDef.multiFilterKeys().size());
+        assertEquals(0, filterDef.multiFilterObject().size());
     }
 
     @Test
@@ -99,14 +100,23 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 null,
                 null,
                 false,
+                true,
                 s -> null);
 
-        assertEquals("WHERE combined.value @> :filter", filterDef.sql());
-        assertEquals(JsonNodeType.OBJECT, filterDef.filterObject().getNodeType());
-        assertEquals("value", filterDef.filterObject().get("key").asText());
-        assertEquals(1, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter" }, filterDef.names().toArray());
-        assertEquals(0, filterDef.multis().size());
+        assertEquals("WHERE datasetId IN (SELECT inner_d.id\n" +
+                "FROM dataset inner_d\n" +
+                "    LEFT JOIN label_values inner_lv ON inner_d.id = inner_lv.dataset_id\n" +
+                "    LEFT JOIN label inner_l ON inner_l.id = inner_lv.label_id\n" +
+                "    WHERE inner_d.testid = :testId AND ( (inner_l.name = :key0 AND inner_lv.value = :value0) )\n" +
+                "    GROUP BY inner_d.id\n" +
+                "    HAVING COUNT(*) = :filterKeysCount\n" +
+                ") ", filterDef.sql());
+        assertEquals(JsonNodeType.OBJECT, filterDef.simpleFilterObject().getNodeType());
+        assertEquals("value", filterDef.simpleFilterObject().get("key").asText());
+        assertEquals(0, filterDef.multiFilterKeys().size());
+        assertEquals(1, filterDef.simpleFilterObject().size());
+        assertEquals(0, filterDef.multiFilterObject().size());
+        assertNotNull(filterDef.simpleFilterObject().get("key"));
     }
 
     @Test
@@ -120,18 +130,64 @@ class LabelValuesServiceTest extends BaseServiceNoRestTest {
                 null,
                 null,
                 true,
+                true,
                 s -> List.of());
 
         assertEquals(
-                "WHERE combined.value @> :filter AND  jsonb_path_query_first(combined.value,CAST( :key0 as jsonpath)) = ANY(:value0)  AND  jsonb_path_query_first(combined.value,CAST( :key1 as jsonpath)) = ANY(:value1) ",
+                "WHERE datasetId IN (SELECT inner_d.id\n" +
+                        "FROM dataset inner_d\n" +
+                        "    LEFT JOIN label_values inner_lv ON inner_d.id = inner_lv.dataset_id\n" +
+                        "    LEFT JOIN label inner_l ON inner_l.id = inner_lv.label_id\n" +
+                        "    WHERE inner_d.testid = :testId AND ( (inner_l.name = :key0 AND inner_lv.value = :value0)  OR  (inner_l.name = :key1 AND inner_lv.value = ANY(:value1))  OR  (inner_l.name = :key2 AND inner_lv.value = ANY(:value2)) )\n"
+                        +
+                        "    GROUP BY inner_d.id\n" +
+                        "    HAVING COUNT(*) = :filterKeysCount\n" +
+                        ") ",
                 filterDef.sql());
-        assertEquals(JsonNodeType.OBJECT, filterDef.filterObject().getNodeType());
-        assertEquals("value1", filterDef.filterObject().get("key1").asText());
-        assertNull(filterDef.filterObject().get("key2"));
-        assertNull(filterDef.filterObject().get("key3"));
-        assertEquals(5, filterDef.names().size());
-        assertArrayEquals(new String[] { "filter", "key1", "key0", "value1", "value0" }, filterDef.names().toArray());
-        assertEquals(2, filterDef.multis().size());
-        assertArrayEquals(new String[] { "key2", "key3" }, filterDef.multis().toArray());
+        assertEquals(JsonNodeType.OBJECT, filterDef.simpleFilterObject().getNodeType());
+        assertEquals("value1", filterDef.simpleFilterObject().get("key1").asText());
+        assertNull(filterDef.simpleFilterObject().get("key2"));
+        assertNull(filterDef.simpleFilterObject().get("key3"));
+        assertEquals(2, filterDef.multiFilterKeys().size());
+        assertArrayEquals(new String[] { "key2", "key3" }, filterDef.multiFilterKeys().toArray());
+        assertEquals(2, filterDef.multiFilterObject().size());
+        assertEquals(1, filterDef.simpleFilterObject().size());
+        assertNotNull(filterDef.simpleFilterObject().get("key1"));
+    }
+
+    @Test
+    void testGetFilterDefFromObjectWithMultiFilterAndBefore() {
+        ObjectNode filter = JsonNodeFactory.instance.objectNode().put("key1", "value1");
+        filter.set("key2", JsonNodeFactory.instance.arrayNode().add("possible1").add("possible2"));
+        filter.set("key3", JsonNodeFactory.instance.arrayNode().add("string").add(3));
+
+        LabelValuesService.FilterDef filterDef = labelValuesService.getFilterDef(
+                filter,
+                Instant.now(),
+                null,
+                true,
+                true,
+                s -> List.of());
+
+        assertEquals(
+                "WHERE datasetId IN (SELECT inner_d.id\n" +
+                        "FROM dataset inner_d\n" +
+                        "    LEFT JOIN label_values inner_lv ON inner_d.id = inner_lv.dataset_id\n" +
+                        "    LEFT JOIN label inner_l ON inner_l.id = inner_lv.label_id\n" +
+                        "    WHERE inner_d.testid = :testId AND ( (inner_l.name = :key0 AND inner_lv.value = :value0)  OR  (inner_l.name = :key1 AND inner_lv.value = ANY(:value1))  OR  (inner_l.name = :key2 AND inner_lv.value = ANY(:value2)) )\n"
+                        +
+                        "    GROUP BY inner_d.id\n" +
+                        "    HAVING COUNT(*) = :filterKeysCount\n" +
+                        ")  AND  combined.stop < :before",
+                filterDef.sql());
+        assertEquals(JsonNodeType.OBJECT, filterDef.simpleFilterObject().getNodeType());
+        assertEquals("value1", filterDef.simpleFilterObject().get("key1").asText());
+        assertNull(filterDef.simpleFilterObject().get("key2"));
+        assertNull(filterDef.simpleFilterObject().get("key3"));
+        assertEquals(2, filterDef.multiFilterKeys().size());
+        assertArrayEquals(new String[] { "key2", "key3" }, filterDef.multiFilterKeys().toArray());
+        assertEquals(2, filterDef.multiFilterObject().size());
+        assertEquals(1, filterDef.simpleFilterObject().size());
+        assertNotNull(filterDef.simpleFilterObject().get("key1"));
     }
 }

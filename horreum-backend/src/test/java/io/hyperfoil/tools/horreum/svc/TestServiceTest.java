@@ -37,7 +37,20 @@ import io.hyperfoil.tools.horreum.action.ExperimentResultToMarkdown;
 import io.hyperfoil.tools.horreum.api.SortDirection;
 import io.hyperfoil.tools.horreum.api.alerting.Variable;
 import io.hyperfoil.tools.horreum.api.alerting.Watch;
-import io.hyperfoil.tools.horreum.api.data.*;
+import io.hyperfoil.tools.horreum.api.data.Action;
+import io.hyperfoil.tools.horreum.api.data.ActionLog;
+import io.hyperfoil.tools.horreum.api.data.Dataset;
+import io.hyperfoil.tools.horreum.api.data.ExperimentProfile;
+import io.hyperfoil.tools.horreum.api.data.ExportedLabelValues;
+import io.hyperfoil.tools.horreum.api.data.Extractor;
+import io.hyperfoil.tools.horreum.api.data.FingerprintValue;
+import io.hyperfoil.tools.horreum.api.data.Fingerprints;
+import io.hyperfoil.tools.horreum.api.data.Schema;
+import io.hyperfoil.tools.horreum.api.data.Test;
+import io.hyperfoil.tools.horreum.api.data.TestExport;
+import io.hyperfoil.tools.horreum.api.data.Transformer;
+import io.hyperfoil.tools.horreum.api.data.View;
+import io.hyperfoil.tools.horreum.api.data.ViewComponent;
 import io.hyperfoil.tools.horreum.api.services.SchemaService;
 import io.hyperfoil.tools.horreum.api.services.TestService;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
@@ -474,7 +487,7 @@ class TestServiceTest extends BaseServiceTest {
         assertEquals("RulesWithJoinsProvides", ((FingerprintValue<String>) values.get(1).values.get(1).children.get(2)).value);
     }
 
-    private String labelValuesSetup(Test t, boolean load) throws JsonProcessingException {
+    private String labelValuesSetup(Test t, boolean load) {
         Schema fooSchema = createSchema("foo", "urn:foo");
         Extractor fooExtractor = new Extractor();
         fooExtractor.name = "foo";
@@ -514,15 +527,16 @@ class TestServiceTest extends BaseServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void labelValuesFilterMultiSelectStrings() throws JsonProcessingException {
+    public void labelValuesFilterWithObject() throws JsonProcessingException {
         Test t = createTest(createExampleTest("my-test"));
         labelValuesSetup(t, false);
         uploadRun("{ \"foo\": 1, \"bar\": \"uno\"}", t.name, "urn:foo");
         uploadRun("{ \"foo\": 2, \"bar\": \"dos\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 3, \"bar\": \"tres\"}", t.name, "urn:foo");
         JsonNode response = jsonRequest()
                 .urlEncodingEnabled(true)
-                .queryParam("filter", Maps.of("labelBar", Arrays.asList("uno", 30)))
-                .queryParam("multiFilter", true)
+                .queryParam("filter", Maps.of("labelBar", "uno", "labelFoo", 1))
+                .queryParam("multiFilter", false)
                 .get("/api/test/" + t.id + "/labelValues")
                 .then()
                 .statusCode(200)
@@ -541,15 +555,70 @@ class TestServiceTest extends BaseServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void labelValuesFilterStrings() throws JsonProcessingException {
+    public void labelValuesFilterWithObjectNoMatch() throws JsonProcessingException {
+        Test t = createTest(createExampleTest("my-test"));
+        labelValuesSetup(t, false);
+        uploadRun("{ \"foo\": 1, \"bar\": \"uno\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 2, \"bar\": \"dos\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 3, \"bar\": \"tres\"}", t.name, "urn:foo");
+        JsonNode response = jsonRequest()
+                .urlEncodingEnabled(true)
+                // no runs match both conditions
+                .queryParam("filter", Maps.of("labelBar", "uno", "labelFoo", "3"))
+                .queryParam("multiFilter", false)
+                .get("/api/test/" + t.id + "/labelValues")
+                .then()
+                .statusCode(200)
+                .extract()
+                .body()
+                .as(JsonNode.class);
+        assertInstanceOf(ArrayNode.class, response);
+        ArrayNode arrayResponse = (ArrayNode) response;
+        assertEquals(0, arrayResponse.size(), "unexpected number of responses " + response);
+    }
+
+    @org.junit.jupiter.api.Test
+    public void labelValuesFilterMultiSelectMultipleValues() throws JsonProcessingException {
+        Test t = createTest(createExampleTest("my-test"));
+        labelValuesSetup(t, false);
+        uploadRun("{ \"foo\": 1, \"bar\": \"uno\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 2, \"bar\": \"dos\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 3, \"bar\": \"tres\"}", t.name, "urn:foo");
+        JsonNode response = jsonRequest()
+                .urlEncodingEnabled(true)
+                .queryParam("filter", Maps.of("labelBar", Arrays.asList("uno", "tres")))
+                .queryParam("multiFilter", true)
+                .get("/api/test/" + t.id + "/labelValues")
+                .then()
+                .statusCode(200)
+                .extract()
+                .body()
+                .as(JsonNode.class);
+        assertInstanceOf(ArrayNode.class, response);
+        ArrayNode arrayResponse = (ArrayNode) response;
+        assertEquals(2, arrayResponse.size(), "unexpected number of responses " + response);
+        JsonNode first = arrayResponse.get(0);
+        assertTrue(first.has("values"), first.toString());
+        JsonNode values = first.get("values");
+        assertTrue(values.has("labelBar"), values.toString());
+        assertEquals(JsonNodeType.STRING, values.get("labelBar").getNodeType());
+        JsonNode second = arrayResponse.get(0);
+        assertTrue(first.has("values"), second.toString());
+        JsonNode secondValues = second.get("values");
+        assertTrue(values.has("labelBar"), secondValues.toString());
+        assertEquals(JsonNodeType.STRING, secondValues.get("labelBar").getNodeType());
+    }
+
+    @org.junit.jupiter.api.Test
+    public void labelValuesFilterMultiSelectStrings() throws JsonProcessingException {
         Test t = createTest(createExampleTest("my-test"));
         labelValuesSetup(t, false);
         uploadRun("{ \"foo\": 1, \"bar\": \"uno\"}", t.name, "urn:foo");
         uploadRun("{ \"foo\": 2, \"bar\": \"dos\"}", t.name, "urn:foo");
         JsonNode response = jsonRequest()
                 .urlEncodingEnabled(true)
-                .queryParam("filter", Maps.of("labelBar", "uno"))
-                .queryParam("multiFilter", false)
+                .queryParam("filter", Maps.of("labelBar", Arrays.asList("uno", 30)))
+                .queryParam("multiFilter", true)
                 .get("/api/test/" + t.id + "/labelValues")
                 .then()
                 .statusCode(200)
