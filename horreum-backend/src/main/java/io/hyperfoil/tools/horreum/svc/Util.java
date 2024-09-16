@@ -850,7 +850,7 @@ public class Util {
      * @param input filter string
      * @return JsonNode, original string or null
      */
-    public static Object getFilterObject(String input) {
+    public static JsonNode getFilterObject(String input) {
         if (input == null || input.isBlank()) {
             // not a valid filter
             return null;
@@ -864,8 +864,9 @@ public class Util {
         if (filterJson != null && filterJson.getNodeType() == JsonNodeType.OBJECT) {
             return filterJson;
         } else {
+            // do we need this?? the ObjectMapper().readTree(input) should already parse the object properly
             // TODO validate the jsonpath?
-            return input;
+            return JsonNodeFactory.instance.textNode(input);
         }
     }
 

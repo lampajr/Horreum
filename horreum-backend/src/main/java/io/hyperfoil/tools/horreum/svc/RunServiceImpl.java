@@ -1,11 +1,19 @@
 package io.hyperfoil.tools.horreum.svc;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static io.hyperfoil.tools.horreum.entity.data.SchemaDAO.*;
+import static io.hyperfoil.tools.horreum.entity.data.SchemaDAO.QUERY_1ST_LEVEL_BY_RUNID_TRANSFORMERID_SCHEMA_ID;
+import static io.hyperfoil.tools.horreum.entity.data.SchemaDAO.QUERY_2ND_LEVEL_BY_RUNID_TRANSFORMERID_SCHEMA_ID;
+import static io.hyperfoil.tools.horreum.entity.data.SchemaDAO.QUERY_TRANSFORMER_TARGETS;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -14,9 +22,17 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceException;
+import jakarta.persistence.Query;
 import jakarta.persistence.TransactionRequiredException;
-import jakarta.transaction.*;
+import jakarta.persistence.Tuple;
+import jakarta.transaction.InvalidTransactionException;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.Transaction;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -40,8 +56,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
 import io.hyperfoil.tools.horreum.api.SortDirection;
-import io.hyperfoil.tools.horreum.api.data.*;
 import io.hyperfoil.tools.horreum.api.data.Access;
+import io.hyperfoil.tools.horreum.api.data.Dataset;
+import io.hyperfoil.tools.horreum.api.data.ExportedLabelValues;
+import io.hyperfoil.tools.horreum.api.data.JsonpathValidation;
+import io.hyperfoil.tools.horreum.api.data.LabelValueMap;
+import io.hyperfoil.tools.horreum.api.data.Run;
+import io.hyperfoil.tools.horreum.api.data.ValidationError;
 import io.hyperfoil.tools.horreum.api.services.RunService;
 import io.hyperfoil.tools.horreum.api.services.SchemaService;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
@@ -51,7 +72,11 @@ import io.hyperfoil.tools.horreum.datastore.DatastoreResponse;
 import io.hyperfoil.tools.horreum.entity.PersistentLogDAO;
 import io.hyperfoil.tools.horreum.entity.alerting.DataPointDAO;
 import io.hyperfoil.tools.horreum.entity.alerting.TransformationLogDAO;
-import io.hyperfoil.tools.horreum.entity.data.*;
+import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
+import io.hyperfoil.tools.horreum.entity.data.RunDAO;
+import io.hyperfoil.tools.horreum.entity.data.SchemaDAO;
+import io.hyperfoil.tools.horreum.entity.data.TestDAO;
+import io.hyperfoil.tools.horreum.entity.data.TransformerDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import io.hyperfoil.tools.horreum.hibernate.JsonbSetType;
 import io.hyperfoil.tools.horreum.mapper.DatasetMapper;
@@ -113,6 +138,9 @@ public class RunServiceImpl implements RunService {
 
     @Inject
     TestServiceImpl testService;
+
+    @Inject
+    LabelValuesService labelValuesService;
 
     @Inject
     ObjectMapper mapper;
@@ -273,10 +301,10 @@ public class RunServiceImpl implements RunService {
         if (run == null) {
             throw ServiceException.serverError("Cannot find run " + runId);
         }
-        Object filterObject = Util.getFilterObject(filter);
+        JsonNode filterObject = Util.getFilterObject(filter);
 
-        TestServiceImpl.FilterDef filterDef = TestServiceImpl.getFilterDef(filter, null, null, multiFilter,
-                (str) -> labelValues(runId, str, sort, direction, limit, page, include, exclude, false), em);
+        LabelValuesService.FilterDef filterDef = labelValuesService.getFilterDef(filterObject, null, null, multiFilter,
+                (str) -> labelValues(runId, str, sort, direction, limit, page, include, exclude, false));
 
         String filterSql = filterDef.sql();
         if (filterDef.filterObject() != null) {
@@ -332,9 +360,9 @@ public class RunServiceImpl implements RunService {
         NativeQuery query = ((NativeQuery) em.createNativeQuery(sql))
                 .setParameter("runId", runId);
         if (!filterSql.isEmpty()) {
-            if (filterSql.contains(TestServiceImpl.LABEL_VALUES_FILTER_CONTAINS_JSON)) {
+            if (filterSql.contains(LabelValuesService.LABEL_VALUES_FILTER_CONTAINS_JSON)) {
                 query.setParameter("filter", filterObject, JsonBinaryType.INSTANCE);
-            } else if (filterSql.contains(TestServiceImpl.LABEL_VALUES_FILTER_MATCHES_NOT_NULL)) {
+            } else if (filterSql.contains(LabelValuesService.LABEL_VALUES_FILTER_MATCHES_NOT_NULL)) {
                 query.setParameter("filter", filter);
             }
         }

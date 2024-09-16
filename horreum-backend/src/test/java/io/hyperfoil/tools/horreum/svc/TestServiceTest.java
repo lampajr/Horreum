@@ -541,6 +541,33 @@ class TestServiceTest extends BaseServiceTest {
     }
 
     @org.junit.jupiter.api.Test
+    public void labelValuesFilterStrings() throws JsonProcessingException {
+        Test t = createTest(createExampleTest("my-test"));
+        labelValuesSetup(t, false);
+        uploadRun("{ \"foo\": 1, \"bar\": \"uno\"}", t.name, "urn:foo");
+        uploadRun("{ \"foo\": 2, \"bar\": \"dos\"}", t.name, "urn:foo");
+        JsonNode response = jsonRequest()
+                .urlEncodingEnabled(true)
+                .queryParam("filter", Maps.of("labelBar", "uno"))
+                .queryParam("multiFilter", false)
+                .get("/api/test/" + t.id + "/labelValues")
+                .then()
+                .statusCode(200)
+                .extract()
+                .body()
+                .as(JsonNode.class);
+        assertInstanceOf(ArrayNode.class, response);
+        ArrayNode arrayResponse = (ArrayNode) response;
+        assertEquals(1, arrayResponse.size(), "unexpected number of responses " + response);
+        JsonNode first = arrayResponse.get(0);
+        assertTrue(first.has("values"), first.toString());
+        JsonNode values = first.get("values");
+        assertTrue(values.has("labelBar"), values.toString());
+        assertEquals(JsonNodeType.STRING, values.get("labelBar").getNodeType());
+        assertEquals("uno", values.get("labelBar").asText());
+    }
+
+    @org.junit.jupiter.api.Test
     public void labelValuesFilterMultiSelectNumber() throws JsonProcessingException {
         Test t = createTest(createExampleTest("my-test"));
         labelValuesSetup(t, false);
