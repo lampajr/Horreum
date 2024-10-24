@@ -13,11 +13,12 @@ import {
 } from "recharts"
 import { Bullseye, Button, EmptyState, Spinner, EmptyStateHeader, EmptyStateFooter,  } from "@patternfly/react-core"
 import { DateTime } from "luxon"
-import {alertingApi, AnnotationDefinition, FingerprintValue, TimeseriesTarget} from "../../api"
+import {alertingApi, AnnotationDefinition, Change, FingerprintValue, TimeseriesTarget} from "../../api"
 import { fingerprintToString } from "../../utils"
 import { fetchDatapoints, fetchAllAnnotations } from "./Changes"
 import {AppContext} from "../../context/appContext";
 import {AppContextType} from "../../context/@types/appContextTypes";
+import {ChangeModal} from "./ChangeModal";
 
 function tsToDate(timestamp: number) {
     return DateTime.fromMillis(timestamp).toFormat("yyyy-LL-dd")
@@ -95,7 +96,7 @@ export default function PanelChart({
     endTime,
     setEndTime,
     lineType,
-    onChangeSelected: propOnChangeSelected,
+    onChangeSelected,
 }: PanelProps) {
     const { alerting } = useContext(AppContext) as AppContextType;
     const [legend, setLegend] = useState<any[]>() // Payload is not exported
@@ -151,7 +152,6 @@ export default function PanelChart({
         })
         return [...series.values()].sort((a, b) => a.timestamp - b.timestamp)
     }, [datapoints])
-    const onChangeSelected = propOnChangeSelected
     const changes = useMemo(
         () =>
             annotations?.map(a => {

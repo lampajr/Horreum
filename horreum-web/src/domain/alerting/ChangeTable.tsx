@@ -1,31 +1,24 @@
-import {useState, useEffect, useContext} from "react"
+import { useState, useEffect, useContext } from "react"
 import {
-	ActionGroup,
-	Button,
-	ExpandableSection,
-	Form,
-	FormGroup,
-	Modal,
-	Tab,
-	Tabs,
-	TextArea,
-	Switch,
-    Dropdown,
-    DropdownItem,
-    MenuToggle,
-    MenuToggleElement
+    Dropdown, DropdownItem,
+    ExpandableSection, MenuToggle, MenuToggleElement,
+    Tab,
+    Tabs
 } from '@patternfly/react-core';
 import { CheckIcon } from "@patternfly/react-icons"
 import { NavLink } from "react-router-dom"
-import {alertingApi, Change, FingerprintValue, Variable} from "../../api"
+import { alertingApi, Change, FingerprintValue, Variable } from "../../api"
 import { fingerprintToString, formatDateTime } from "../../utils"
 import { Column, UseSortByColumnOptions } from "react-table"
 import { useTester } from "../../auth"
-import {AppContext} from "../../context/appContext";
-import {AppContextType} from "../../context/@types/appContextTypes";
+import { AppContext } from "../../context/appContext";
+import { AppContextType } from "../../context/@types/appContextTypes";
 import CustomTable from "../../components/CustomTable";
 
-import EllipsisVIcon from '@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon';
+import { ChangeModal } from "./ChangeModal";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+
+type C = Column<Change> & UseSortByColumnOptions<Change>
 
 type ChangeMenuProps = {
     change: Change
@@ -33,7 +26,7 @@ type ChangeMenuProps = {
     onUpdate(change: Change): void
 }
 
-const ChangeMenu = ({ change, onDelete, onUpdate }: ChangeMenuProps) => {
+export const ChangeMenu = ({ change, onDelete, onUpdate }: ChangeMenuProps) => {
     const [open, setOpen] = useState(false)
     const [modalChange, setModalChange] = useState<Change>()
     const onSelect = () => {
@@ -92,65 +85,6 @@ const ChangeMenu = ({ change, onDelete, onUpdate }: ChangeMenuProps) => {
                 onUpdate={onUpdate}
             />
         </>
-    )
-}
-
-type C = Column<Change> & UseSortByColumnOptions<Change>
-
-type ChangeModalProps = {
-    change?: Change
-    isOpen: boolean
-    onClose(): void
-    onUpdate(change: Change): void
-}
-
-const ChangeModal = ({ change, isOpen, onClose, onUpdate }: ChangeModalProps) => {
-    const [description, setDescription] = useState(change?.description)
-    const [confirmed, setConfirmed] = useState(change?.confirmed)
-    useEffect(() => {
-        setDescription(change?.description)
-        setConfirmed(change?.confirmed)
-    }, [change])
-    return (
-        <Modal title={change?.confirmed ? "Confirm change" : "Edit change"} isOpen={isOpen} onClose={onClose}>
-            <Form>
-                <FormGroup label="Confirmed" fieldId="confirmed">
-                    <Switch
-                        id="confirmed"
-                        isChecked={confirmed}
-                        onChange={(_event, val) => setConfirmed(val)}
-                        label="Confirmed"
-                        labelOff="Not confirmed"
-                    />
-                </FormGroup>
-                <FormGroup label="Description" fieldId="description">
-                    <TextArea
-                        value={description || ""}
-                        type="text"
-                        id="description"
-                        aria-describedby="description-helper"
-                        name="description"
-                        onChange={(_event, val) => setDescription(val)}
-                    />
-                </FormGroup>
-            </Form>
-            <ActionGroup>
-                <Button
-                    variant="primary"
-                    onClick={() => {
-                        if (change) {
-                            onUpdate({ ...change, description: description || "", confirmed: !!confirmed })
-                        }
-                        onClose()
-                    }}
-                >
-                    Save
-                </Button>
-                <Button variant="secondary" onClick={onClose}>
-                    Cancel
-                </Button>
-            </ActionGroup>
-        </Modal>
     )
 }
 

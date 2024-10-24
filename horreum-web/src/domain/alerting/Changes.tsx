@@ -1,4 +1,4 @@
-import {useState, useEffect, useMemo, useCallback, useContext} from "react"
+import React, {useState, useEffect, useMemo, useCallback, useContext} from "react"
 import { ChangesTabs } from "./ChangeTable"
 import { SelectedTest } from "../../components/TestSelect"
 import LabelsSelect, { convertLabels } from "../../components/LabelsSelect"
@@ -13,7 +13,7 @@ import {
     alertingApi,
     testApi,
     changesApi,
-    FingerprintValue,
+    FingerprintValue, Change,
 } from "../../api"
 
 import {
@@ -39,6 +39,7 @@ import { useNavigate } from "react-router-dom"
 import {AppContext} from "../../context/appContext";
 import {AppContextType} from "../../context/@types/appContextTypes";
 import {useSelector} from "react-redux";
+import {ChangeModal} from "./ChangeModal";
 
 type TimespanSelectProps = {
     value?: number
@@ -245,6 +246,10 @@ export default function Changes(props: ChangesProps) {
     const [timespan, setTimespan] = useState<number>(toNumber(params.get("timespan")) || MONTH)
     const [lineType, setLineType] = useState(params.get("line") || "linear")
 
+    // selected change
+    // const [changesMap, setChangesMap] = useState<Map<number, Map<number, Change>>>()
+    const [modalChange, setModalChange] = useState<Change>()
+
     const createQuery = (alwaysEndTime: boolean) => {
         let query = ""
         if (selectedFingerprint) {
@@ -294,8 +299,8 @@ export default function Changes(props: ChangesProps) {
             setDate(newDate)
         }
     }, [endTime /* date omitted intentionally */])
-    const [selectedChange, setSelectedChange] = useState<number>()
-    const [selectedVariable, setSelectedVariable] = useState<number>()
+    const [selectedChangeId, setSelectedChangeId] = useState<number>()
+    const [selectedVariableId, setSelectedVariableId] = useState<number>()
 
     const fingerprintSource = useCallback(() => {
         if (!selectedTest) {
@@ -398,19 +403,15 @@ export default function Changes(props: ChangesProps) {
                                                         timespan={timespan}
                                                         lineType={lineType}
                                                         onChangeSelected={(changeId, variableId) => {
-                                                            setSelectedChange(changeId)
-                                                            setSelectedVariable(variableId)
-                                                            // we cannot scroll to an element that's not visible yet
-                                                            window.setTimeout(() => {
-                                                                const element = document.getElementById(
-                                                                    "change_" + changeId
-                                                                )
-                                                                if (element && element !== null) {
-                                                                    element.scrollIntoView()
-                                                                }
-                                                                // this is hacky way to reopen tabs on subsequent click
-                                                                setSelectedVariable(undefined)
-                                                            }, 100)
+                                                            setSelectedVariableId(variableId)
+                                                            setSelectedChangeId(changeId)
+                                                            alertingApi.changes(variableId, fingerprintToString(selectedFingerprint)).then(
+                                                                changes => {
+                                                                    const filteredChanges = changes.filter(c => c.id === changeId)
+                                                                    setModalChange(filteredChanges.length > 0 ? filteredChanges[0] : undefined)
+                                                                },
+                                                                error => alerting.dispatchError(error, "DASHBOARD_FETCH", "Failed to fetch changes")
+                                                            )
                                                         }}
                                                     />
                                                 </DataListCell>,
@@ -425,8 +426,8 @@ export default function Changes(props: ChangesProps) {
                                                         variables={p.variables}
                                                         fingerprint={selectedFingerprint}
                                                         testOwner={selectedTest?.owner}
-                                                        selectedChangeId={selectedChange}
-                                                        selectedVariableId={selectedVariable}
+                                                        selectedChangeId={selectedChangeId}
+                                                        selectedVariableId={selectedVariableId}
                                                     />
                                                 </DataListCell>,
                                             ]}
@@ -435,6 +436,20 @@ export default function Changes(props: ChangesProps) {
                                 </DataListItem>
                             </DataList>
                         ))}
+                    <ChangeModal
+                        change={modalChange}
+                        isOpen={!!modalChange}
+                        onClose={() => setModalChange(undefined)}
+                        onUpdate={change =>
+                            alertingApi.updateChange(change.id, change).then(
+                                _ => {
+                                    return
+                                },
+                                error =>
+                                    alerting.dispatchError(error,"CHANGE_UPDATE", "Failed to update change " + change.id)
+                            )
+                        }
+                    />
                 </CardBody>
             </Card>
     )
