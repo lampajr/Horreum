@@ -56,7 +56,6 @@ import io.hyperfoil.tools.horreum.api.internal.services.AlertingService;
 import io.hyperfoil.tools.horreum.api.services.DatasetService;
 import io.hyperfoil.tools.horreum.api.services.ExperimentService;
 import io.hyperfoil.tools.horreum.api.services.RunService;
-import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
 import io.hyperfoil.tools.horreum.entity.data.RunDAO;
 import io.hyperfoil.tools.horreum.mapper.DatasetMapper;
@@ -76,38 +75,33 @@ import io.restassured.specification.RequestSpecification;
 @QuarkusTestResource(PostgresResource.class)
 @QuarkusTestResource(OidcWiremockTestResource.class)
 @TestProfile(InMemoryAMQTestProfile.class)
-public class RunServiceTest extends BaseServiceTest {
-    private static final int POLL_DURATION_SECONDS = 10;
+public class RunServiceTest extends BaseMockedAsyncServiceTest {
 
     @org.junit.jupiter.api.Test
     public void testTransformationNoSchemaInData(TestInfo info) throws InterruptedException {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Extractor path = new Extractor("foo", "$.value", false);
         Schema schema = createExampleSchema(info);
 
         Transformer transformer = createTransformer("acme", schema, "", path);
         addTransformer(test, transformer);
-        uploadRun("{\"corporation\":\"acme\"}", test.name);
+        int runId = uploadRun("{\"corporation\":\"acme\"}", test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event);
-        DatasetDAO dataset = DatasetDAO.findById(event.datasetId);
+        DatasetDAO dataset = DatasetDAO.find("run.id = ?1", runId).firstResult();
         TestUtil.assertEmptyArray(dataset.data);
     }
 
     @org.junit.jupiter.api.Test
     public void testTransformationWithoutSchema(TestInfo info) throws InterruptedException {
         Test test = createTest(createExampleTest(getTestName(info)));
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         Schema schema = createExampleSchema(info);
 
         int runId = uploadRun(runWithValue(42, schema).toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        assertNewDataset(dataSetQueue, runId);
         em.clear();
 
         BlockingQueue<Integer> trashedQueue = trashRun(runId, test.id);
@@ -124,7 +118,6 @@ public class RunServiceTest extends BaseServiceTest {
         assertNull(trashedQueue.poll(50, TimeUnit.MILLISECONDS));
         run = RunDAO.findById(runId);
         assertFalse(run.trashed);
-        assertNewDataset(dataSetQueue, runId);
     }
 
     private String createTransformingSchema(Test t) {
@@ -293,15 +286,11 @@ public class RunServiceTest extends BaseServiceTest {
     public void labelValuesPublicTestPublicRun(TestInfo info) throws InterruptedException {
         Test test = createExampleTest(getTestName(info));
         test.access = Access.PUBLIC;
-        Test persistedTest = createTest(test);
-
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW,
-                persistedTest.id);
+        createTest(test);
         Schema schema = createExampleSchema(info);
 
         int runId = uploadRun(runWithValue(42, schema).toString(), test.name);
-        assertNewDataset(dataSetQueue, runId);
-        recalculateDatasetForRun(runId);
+        checkAndPropagateDatasetEvents(1);
 
         List<ExportedLabelValues> rtrn = jsonRequest()
                 .get("/api/run/" + runId + "/labelValues")
@@ -319,27 +308,16 @@ public class RunServiceTest extends BaseServiceTest {
         assertEquals(42, elv.values.get("value").asInt());
     }
 
-    private void assertNewDataset(BlockingQueue<Dataset.EventNew> dataSetQueue, int runId) throws InterruptedException {
-        Dataset.EventNew event = dataSetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event);
-        assertEquals(runId, event.runId);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
-        assertNotNull(ds);
-        assertEquals(runId, ds.run.id);
-    }
-
     @org.junit.jupiter.api.Test
     public void testTransformationWithoutSchemaInUpload(TestInfo info) throws InterruptedException {
         Test test = createTest(createExampleTest(getTestName(info)));
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
 
         setTestVariables(test, "Value", new Label("value", 1));
 
-        uploadRun("{ \"foo\":\"bar\"}", test.name);
+        int runId = uploadRun("{ \"foo\":\"bar\"}", test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         TestUtil.assertEmptyArray(ds.data);
     }
 
@@ -348,16 +326,14 @@ public class RunServiceTest extends BaseServiceTest {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Schema schema = createExampleSchema(info);
 
         Transformer transformer = createTransformer("acme", schema, "");
         addTransformer(test, transformer);
-        uploadRun(runWithValue(42.0d, schema), test.name);
+        int runId = uploadRun(runWithValue(42.0d, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         JsonNode node = ds.data;
         assertTrue(node.isArray());
         assertEquals(1, node.size());
@@ -370,17 +346,15 @@ public class RunServiceTest extends BaseServiceTest {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Schema schema = createExampleSchema("AcneCorp", "AcneInc", "AcneRrUs", false);
 
         Extractor path = new Extractor("foo", "$.value", false);
         Transformer transformer = createTransformer("acme", schema, "", path); // blank function
         addTransformer(test, transformer);
-        uploadRun(runWithValue(42.0d, schema), test.name);
+        int runId = uploadRun(runWithValue(42.0d, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         assertTrue(ds.data.isArray());
         assertEquals(1, ds.data.size());
         // the result of single extractor is 42, hence this needs to be wrapped into an object (using `value`) before adding schema
@@ -402,15 +376,11 @@ public class RunServiceTest extends BaseServiceTest {
         Test test = createTest(exampleTest);
         addTransformer(test, acmeTransformer, roadRunnerTransformer);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         String data = runWithValueSchemas(42.0d, acmeSchema, roadRunnerSchema).toString();
         int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         JsonNode node = ds.data;
         assertTrue(node.isArray());
         assertEquals(2, node.size());
@@ -425,15 +395,12 @@ public class RunServiceTest extends BaseServiceTest {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Schema acmeSchema = createExampleSchema("AceCorp", "AceInc", "AceRrUs", false);
 
-        uploadRun(runWithValue(42.0d, acmeSchema), test.name);
+        int runId = uploadRun(runWithValue(42.0d, acmeSchema), test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         JsonNode node = ds.data;
         assertTrue(node.isArray());
         ObjectNode object = (ObjectNode) node.path(0);
@@ -446,7 +413,6 @@ public class RunServiceTest extends BaseServiceTest {
     @org.junit.jupiter.api.Test
     public void testTransformationNestedSchemasWithoutTransformers(TestInfo info) throws InterruptedException {
         Test test = createTest(createExampleTest(getTestName(info)));
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Schema schemaA = createExampleSchema("Ada", "Ada", "Ada", false);
         Schema schemaB = createExampleSchema("Bdb", "Bdb", "Bdb", false);
         Schema schemaC = createExampleSchema("Cdc", "Cdc", "Cdc", false);
@@ -454,19 +420,16 @@ public class RunServiceTest extends BaseServiceTest {
         ObjectNode data = runWithValue(1, schemaA);
         data.set("nestedB", runWithValue(2, schemaB));
         data.set("nestedC", runWithValue(3, schemaC));
-        uploadRun(data, test.name);
+        int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-
-        assertNotNull(event);
-        Dataset dataset = DatasetMapper.from(DatasetDAO.findById(event.datasetId));
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        Dataset dataset = DatasetMapper.from(ds);
         assertTrue(dataset.data.isArray());
         assertEquals(3, dataset.data.size());
         assertEquals(1, getBySchema(dataset, schemaA).path("value").intValue());
         assertEquals(2, getBySchema(dataset, schemaB).path("value").intValue());
         assertEquals(3, getBySchema(dataset, schemaC).path("value").intValue());
-
-        assertNull(dataSetQueue.poll(50, TimeUnit.MILLISECONDS));
     }
 
     private JsonNode getBySchema(Dataset dataset, Schema schemaA) {
@@ -480,20 +443,16 @@ public class RunServiceTest extends BaseServiceTest {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         Schema appleSchema = createExampleSchema("AppleCorp", "AppleInc", "AppleRrUs", false);
 
         ObjectNode data = runWithValue(42.0d, appleSchema);
         ObjectNode nested = runWithValue(52.0d, appleSchema);
         data.set("field_" + appleSchema.name, nested);
 
-        uploadRun(data, test.name);
+        int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-
-        assertNotNull(event);
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
         JsonNode node = ds.data;
         assertTrue(node.isArray());
         assertEquals(2, node.size());
@@ -508,8 +467,7 @@ public class RunServiceTest extends BaseServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationUsingSingleSchemaTransformersProcessScalarPlusArray(TestInfo info)
-            throws InterruptedException {
+    public void testTransformationUsingSingleSchemaTransformersProcessScalarPlusArray(TestInfo info) {
         Schema schema = createExampleSchema("ArrayCorp", "ArrayInc", "ArrayRrUs", false);
         Extractor arrayPath = new Extractor("mheep", "$.values", false);
         String arrayFunction = "mheep => { return mheep.map(x => ({ \"outcome\": x }))}";
@@ -524,27 +482,19 @@ public class RunServiceTest extends BaseServiceTest {
         Test test = createTest(exampleTest);
         addTransformer(test, arrayTransformer, scalarTransformer);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         ObjectNode data = runWithValue(42.0d, schema);
 
-        uploadRun(data, test.name);
+        int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(3);
 
-        Dataset.EventNew first = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        Dataset.EventNew second = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        Dataset.EventNew third = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
+        List<DatasetDAO> dsList = DatasetDAO.find("run.id = ?1", runId).list();
+        assertEquals(3, dsList.size());
 
-        assertNotNull(first);
-        assertNotNull(second);
-        assertNotNull(third);
-        Dataset ds = DatasetMapper.from(DatasetDAO.findById(first.datasetId));
-        assertTrue(ds.data.isArray());
+        assertTrue(dsList.get(0).data.isArray());
         String target = postFunctionSchemaUri(schema);
-        validateScalarArray(ds, target);
-        ds = DatasetMapper.from(DatasetDAO.findById(second.datasetId));
-        validateScalarArray(ds, target);
-        ds = DatasetMapper.from(DatasetDAO.findById(third.datasetId));
-        validateScalarArray(ds, target);
+        validateScalarArray(DatasetMapper.from(dsList.get(0)), target);
+        validateScalarArray(DatasetMapper.from(dsList.get(1)), target);
+        validateScalarArray(DatasetMapper.from(dsList.get(2)), target);
     }
 
     @org.junit.jupiter.api.Test
@@ -552,12 +502,8 @@ public class RunServiceTest extends BaseServiceTest {
         Schema schemaA = createExampleSchema("Aba", "Aba", "Aba", false);
         Test test = createTest(createExampleTest(getTestName(info)));
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         uploadRun(runWithValue(42, schemaA), test.name);
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
-        assertNull(dataSetQueue.poll(50, TimeUnit.MILLISECONDS));
+        checkAndPropagateDatasetEvents(1);
 
         RunService.RunsSummary runsSummary = jsonRequest()
                 .get("/api/run/bySchema?uri=" + schemaA.uri)
@@ -581,17 +527,12 @@ public class RunServiceTest extends BaseServiceTest {
         Test test = createTest(createExampleTest(getTestName(info)));
         addTransformer(test, transformerA, transformerB);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
-        uploadRun(runWithValue(42, schemaB), test.name);
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
-        Dataset dataset = DatasetMapper.from(DatasetDAO.findById(event.datasetId));
+        int runId = uploadRun(runWithValue(42, schemaB), test.name);
+        checkAndPropagateDatasetEvents(1);
+        Dataset dataset = DatasetMapper.from(DatasetDAO.find("run.id = ?1", runId).firstResult());
         assertTrue(dataset.data.isArray());
         assertEquals(1, dataset.data.size());
         assertEquals("B", dataset.data.get(0).path("by").asText());
-
-        assertNull(dataSetQueue.poll(50, TimeUnit.MILLISECONDS));
     }
 
     @org.junit.jupiter.api.Test
@@ -618,16 +559,13 @@ public class RunServiceTest extends BaseServiceTest {
         Test test = createTest(exampleTest);
         addTransformer(test, scalarTransformer);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-
         ObjectNode data = runWithValue(42.0d, schema);
 
-        uploadRun(data, test.name);
+        int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
-        Dataset dataset = DatasetMapper.from(DatasetDAO.findById(event.datasetId));
-        JsonNode eventData = dataset.data;
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        JsonNode eventData = DatasetMapper.from(ds).data;
         assertTrue(eventData.isArray());
         assertEquals(1, eventData.size());
         JsonNode sheep = eventData.path(0).path("outcome").path("sheep");
@@ -649,13 +587,12 @@ public class RunServiceTest extends BaseServiceTest {
 
         Test test = createTest(createExampleTest(getTestName(info)));
         addTransformer(test, transformerNoFunc, transformerFunc, transformerCombined);
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
 
-        uploadRun(data, test.name);
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
+        int runId = uploadRun(data, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        assertNotNull(event);
-        Dataset dataset = DatasetMapper.from(DatasetDAO.findById(event.datasetId));
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        Dataset dataset = DatasetMapper.from(ds);
         assertTrue(dataset.data.isArray());
         assertEquals(3, dataset.data.size());
         dataset.data.forEach(item -> {
@@ -726,6 +663,7 @@ public class RunServiceTest extends BaseServiceTest {
                 "{\"start_time\": \"2024-03-13T21:18:10.878423-04:00\", \"stop_time\": \"2024-03-13T21:18:11.878423-04:00\"}");
         uploadRun("$.start_time", "$.stop_time", test.name, test.owner, Access.PUBLIC,
                 null, "test", payload);
+        checkAndPropagateDatasetEvents(1);
     }
 
     @org.junit.jupiter.api.Test
@@ -737,6 +675,7 @@ public class RunServiceTest extends BaseServiceTest {
         JsonNode payload = new ObjectMapper().readTree(resourceToString("data/config-quickstart.jvm.json"));
         long now = System.currentTimeMillis();
         int runID = uploadRun(now, now, payload, test.name, test.owner, Access.PRIVATE);
+        checkAndPropagateDatasetEvents(1);
 
         RunService.RunExtended response = RestAssured.given().auth().oauth2(getTesterToken())
                 .header(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -807,14 +746,11 @@ public class RunServiceTest extends BaseServiceTest {
         metadata.add(simpleObject("urn:bar", "bar", "yyy"));
         metadata.add(simpleObject("urn:goo", "goo", "zzz"));
 
-        BlockingQueue<Dataset.EventNew> dsQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
 
         int run1 = uploadRun(now, data, metadata, test.name);
+        checkAndPropagateDatasetEvents(1);
 
-        Dataset.EventNew event1 = dsQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event1);
-        assertEquals(run1, event1.runId);
-        DatasetDAO dataset = DatasetDAO.findById(event1.datasetId);
+        DatasetDAO dataset = DatasetDAO.find("run.id = ?1", run1).firstResult();
         assertEquals(3, dataset.data.size());
         JsonNode foo = getBySchema(dataset.data, "urn:foo");
         assertEquals("xxx", foo.path("foo").asText());
@@ -825,10 +761,8 @@ public class RunServiceTest extends BaseServiceTest {
 
         // test auto-wrapping of object metadata into array
         int run2 = uploadRun(now + 1, data, simpleObject("urn:q", "qqq", "xxx"), test.name);
-        Dataset.EventNew event2 = dsQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event2);
-        assertEquals(run2, event2.runId);
-        dataset = DatasetDAO.findById(event2.datasetId);
+        checkAndPropagateDatasetEvents(1);
+        dataset = DatasetDAO.find("run.id = ?1", run2).firstResult();
         assertEquals(2, dataset.data.size());
         JsonNode qqq = getBySchema(dataset.data, "urn:q");
         assertEquals("xxx", qqq.path("qqq").asText());
@@ -839,7 +773,6 @@ public class RunServiceTest extends BaseServiceTest {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         Schema schemaA = createExampleSchema("AcneCorp", "AcneInc", "RootSchema", false);
         Schema schemaB = createExampleSchema("AcneCorp", "AcneInc", "", false);
 
@@ -849,9 +782,7 @@ public class RunServiceTest extends BaseServiceTest {
 
         //      1. Upload a run without a schema, then define a schema after upload
         int runID = uploadRun(runWithValue(42.0d), test.name);
-
-        Dataset.EventNew event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
+        checkAndPropagateDatasetEvents(1);
 
         Map<Object, Object> schemaMap = RestAssured.given().auth().oauth2(getTesterToken())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN)
@@ -867,14 +798,12 @@ public class RunServiceTest extends BaseServiceTest {
         //      2. Upload a run WITH a schema, then change the schema after upload
 
         runID = uploadRun(runWithValue(42.0d, schemaA), test.name);
+        checkAndPropagateDatasetEvents(1);
 
         List<Object> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runID)
                 .getResultList();
 
         assertNotEquals(0, runSchemas.size());
-
-        event = dataSetQueue.poll(POLL_DURATION_SECONDS, TimeUnit.SECONDS);
-        assertNotNull(event);
 
         schemaMap = RestAssured.given().auth().oauth2(getTesterToken())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN)

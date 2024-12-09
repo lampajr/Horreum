@@ -86,6 +86,18 @@ public abstract class BaseMockedAsyncServiceTest extends BaseServiceTest {
         }
     }
 
+    protected void checkAndPropagateDatasetEvents(int expectedMessages) {
+        checkAndPropagate("dataset-event", expectedMessages);
+    }
+
+    protected void checkAndPropagateSchemaEvents(int expectedMessages) {
+        checkAndPropagate("schema-sync", expectedMessages);
+    }
+
+    protected void checkAndPropagateRunRecalcEvents(int expectedMessages) {
+        checkAndPropagate("run-recalc", expectedMessages);
+    }
+
     protected <T> T withExampleDataset(Test test, JsonNode data, int nDatasets, Function<Dataset, T> testLogic) {
         try {
             RunDAO run = new RunDAO();

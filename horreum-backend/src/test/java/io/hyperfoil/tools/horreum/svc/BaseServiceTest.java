@@ -1077,29 +1077,6 @@ public class BaseServiceTest {
         }
     }
 
-    protected String labelValuesSetup(Test t, boolean load) {
-        Schema fooSchema = createSchema("foo", "urn:foo");
-        Extractor fooExtractor = new Extractor();
-        fooExtractor.name = "foo";
-        fooExtractor.jsonpath = "$.foo";
-        Extractor barExtractor = new Extractor();
-        barExtractor.name = "bar";
-        barExtractor.jsonpath = "$.bar";
-
-        addLabel(fooSchema, "labelFoo", "", fooExtractor);
-        addLabel(fooSchema, "labelBar", "", barExtractor);
-
-        if (load) {
-            List<Integer> ids = uploadRun("{ \"foo\": \"uno\", \"bar\": \"dox\"}", t.name, fooSchema.uri);
-            assertEquals(1, ids.size());
-            // force to recalculate datasets and label values sync
-            recalculateDatasetForRun(ids.get(0));
-            return ids.get(0).toString();
-        } else {
-            return "-1";
-        }
-    }
-
     protected List<Integer> recalculateDatasetForRun(int runId) {
         ArrayNode json = jsonRequest().post("/api/run/" + runId + "/recalculate").then().statusCode(200).extract().body()
                 .as(ArrayNode.class);
