@@ -30,13 +30,12 @@ import io.hyperfoil.tools.horreum.api.data.Extractor;
 import io.hyperfoil.tools.horreum.api.data.QueryResult;
 import io.hyperfoil.tools.horreum.api.internal.services.SqlService;
 import io.hyperfoil.tools.horreum.api.services.DatasetService;
-import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.data.*;
 import io.hyperfoil.tools.horreum.entity.data.ViewComponentDAO;
 import io.hyperfoil.tools.horreum.mapper.LabelMapper;
 import io.hyperfoil.tools.horreum.mapper.ViewMapper;
 import io.hyperfoil.tools.horreum.server.CloseMe;
-import io.hyperfoil.tools.horreum.test.HorreumTestProfile;
+import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import io.hyperfoil.tools.horreum.test.PostgresResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -47,8 +46,8 @@ import io.restassured.response.Response;
 @QuarkusTest
 @QuarkusTestResource(PostgresResource.class)
 @QuarkusTestResource(OidcWiremockTestResource.class)
-@TestProfile(HorreumTestProfile.class)
-public class DatasetServiceTest extends BaseServiceTest {
+@TestProfile(InMemoryAMQTestProfile.class)
+public class DatasetServiceTest extends BaseMockedAsyncServiceTest {
     @Inject
     SqlService sqlService;
 
@@ -85,7 +84,7 @@ public class DatasetServiceTest extends BaseServiceTest {
     private String testDatasetQuery(String jsonPath, boolean array, String schemaUri) {
         AtomicReference<String> result = new AtomicReference<>();
         withExampleSchemas(schemas -> result.set(withExampleDataset(createTest(createExampleTest("dummy")),
-                createABData(), ds -> {
+                createABData(), 1, ds -> {
                     QueryResult queryResult = sqlService.queryDatasetData(ds.id, jsonPath, array, schemaUri);
                     assertTrue(queryResult.valid);
                     return queryResult.value;
@@ -220,10 +219,8 @@ public class DatasetServiceTest extends BaseServiceTest {
             int labelB = addLabel(schemas[1], "B", "v => v + 1", new Extractor("value", "$.value", false));
             int labelC = addLabel(schemas[1], "C", null, new Extractor("value", "$.value", false));
             Test test = createTest(createExampleTest("dummy"));
-            BlockingQueue<Dataset.LabelsUpdatedEvent> updateQueue = serviceMediator
-                    .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
-            withExampleDataset(test, createABData(), ds -> {
-                waitForUpdate(updateQueue, ds);
+
+            withExampleDataset(test, createABData(), 1, ds -> {
                 List<LabelValueDAO> values = LabelValueDAO.<LabelValueDAO> find("datasetId", ds.id).list();
                 assertEquals(3, values.size());
                 assertEquals(24, values.stream().filter(v -> v.labelId == labelA).map(v -> v.value.numberValue()).findFirst()
@@ -235,17 +232,14 @@ public class DatasetServiceTest extends BaseServiceTest {
                 em.clear();
 
                 updateLabel(schemas[0], labelA, "value", null, new Extractor("value", "$.value", true));
+                checkAndPropagate("dataset-event", 1);
                 updateLabel(schemas[1], labelB, "value", "({ x, y }) => x + y", new Extractor("x", "$.value", false),
                         new Extractor("y", "$.value", false));
-                waitForUpdate(updateQueue, ds);
-                waitForUpdate(updateQueue, ds);
+                checkAndPropagate("dataset-event", 1);
+
                 //delete label will cause a recalculation of the labels&datapoints
                 deleteLabel(schemas[1], labelC);
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                checkAndPropagate("dataset-event", 1);
 
                 values = LabelValueDAO.<LabelValueDAO> find("datasetId", ds.id).list();
                 assertEquals(2, values.size());
@@ -261,62 +255,47 @@ public class DatasetServiceTest extends BaseServiceTest {
 
     private List<Label.Value> withLabelValues(ArrayNode data) {
         Test test = createTest(createExampleTest("dummy"));
-        BlockingQueue<Dataset.LabelsUpdatedEvent> updateQueue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
-        return withExampleDataset(test, data, ds -> {
-            waitForUpdate(updateQueue, ds);
-            return LabelValueDAO.<LabelValueDAO> find("datasetId", ds.id).list().stream().map(LabelMapper::fromValue)
-                    .collect(Collectors.toList());
-        });
+        return withExampleDataset(test, data, 1,
+                ds -> LabelValueDAO.<LabelValueDAO> find("datasetId", ds.id).list().stream().map(LabelMapper::fromValue)
+                        .collect(Collectors.toList()));
     }
 
     @org.junit.jupiter.api.Test
     public void testSchemaAfterData() throws InterruptedException {
         Test test = createTest(createExampleTest("xxx"));
-        BlockingQueue<Dataset.EventNew> dsQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-        BlockingQueue<Dataset.LabelsUpdatedEvent> labelQueue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
         JsonNode data = JsonNodeFactory.instance.arrayNode()
                 .add(JsonNodeFactory.instance.objectNode().put("$schema", "urn:another"))
                 .add(JsonNodeFactory.instance.objectNode().put("$schema", "urn:foobar").put("value", 42));
         int runId = uploadRun(data, test.name);
-        Dataset.EventNew firstEvent = dsQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(firstEvent);
-        assertEquals(runId, firstEvent.runId);
-        //      TestUtil.assertEmptyArray(firstEvent.dataset.data);
-        // this update is for no label values - there's no schema
-        Dataset.LabelsUpdatedEvent firstUpdate = labelQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(firstUpdate);
-        assertEquals(firstEvent.datasetId, firstUpdate.datasetId);
+        checkAndPropagate("dataset-event", 1);
 
+        DatasetDAO dataset = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        assertNotNull(dataset);
         assertEquals(0, ((Number) em.createNativeQuery("SELECT count(*) FROM dataset_schemas where dataset_id = ?1")
-                .setParameter(1, firstEvent.datasetId).getSingleResult()).intValue());
+                .setParameter(1, dataset.id).getSingleResult()).intValue());
         Schema schema = createSchema("Foobar", "urn:foobar");
+        checkAndPropagate("schema-sync", 1);
+        checkAndPropagate("run-recalc", 1);
 
-        Dataset.EventNew secondEvent = dsQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(secondEvent);
-        assertEquals(runId, secondEvent.runId);
-        // empty again - we have schema but no labels defined
-        Dataset.LabelsUpdatedEvent secondUpdate = labelQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(secondUpdate);
-        assertEquals(secondEvent.datasetId, secondUpdate.datasetId);
+        // recalc triggered so dataset has been re-generated
+        dataset = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        assertNotNull(dataset);
 
         @SuppressWarnings("unchecked")
         List<Object[]> ds = em.createNativeQuery("SELECT dataset_id, index FROM dataset_schemas where dataset_id = ?1")
-                .setParameter(1, secondEvent.datasetId).getResultList();
+                .setParameter(1, dataset.id).getResultList();
         assertEquals(1, ds.size());
-        assertEquals(secondEvent.datasetId, ds.get(0)[0]);
+        assertEquals(dataset.id, ds.get(0)[0]);
         assertEquals(0, ds.get(0)[1]);
         assertEquals(0, ((Number) em.createNativeQuery("SELECT count(*) FROM label_values where dataset_id = ?1")
-                .setParameter(1, secondEvent.datasetId).getSingleResult()).intValue());
+                .setParameter(1, dataset.id).getSingleResult()).intValue());
 
         addLabel(schema, "value", null, new Extractor("value", "$.value", false));
+        checkAndPropagate("dataset-event", 1);
         // not empty anymore
-        Dataset.LabelsUpdatedEvent thirdUpdate = labelQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(thirdUpdate);
-        assertEquals(secondEvent.datasetId, thirdUpdate.datasetId);
-
-        List<LabelValueDAO> values = LabelValueDAO.list("datasetId", thirdUpdate.datasetId);
+        dataset = DatasetDAO.find("run.id = ?1", runId).firstResult();
+        assertNotNull(dataset);
+        List<LabelValueDAO> values = LabelValueDAO.list("datasetId", dataset.id);
         assertEquals(1, values.size());
         assertEquals(42, values.get(0).value.asInt());
     }
@@ -330,7 +309,7 @@ public class DatasetServiceTest extends BaseServiceTest {
         Util.withTx(tm, () -> {
             try (CloseMe ignored = roleManager.withRoles(Arrays.asList(TESTER_ROLES))) {
                 ViewDAO view = ViewDAO.find("test.id", test.id).firstResult();
-                log.debugf("view is null: %b", view == null);
+                assertNotNull(view, "view object should not be null");
                 view.components.clear();
                 ViewComponentDAO vc1 = new ViewComponentDAO();
                 vc1.view = view;
@@ -351,12 +330,7 @@ public class DatasetServiceTest extends BaseServiceTest {
             Extractor valuePath = new Extractor("value", "$.value", false);
             int labelA = addLabel(schemas[0], "a", null, valuePath);
             int labelB = addLabel(schemas[1], "b", null, valuePath);
-            // view update should happen in the same transaction as labels update so we can use the event
-            log.debugf("Waiting for  MessageBusChannels.DATASET_UPDATED_LABELS");
-            BlockingQueue<Dataset.LabelsUpdatedEvent> updateQueue = serviceMediator
-                    .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
-            withExampleDataset(test, createABData(), ds -> {
-                waitForUpdate(updateQueue, ds);
+            withExampleDataset(test, createABData(), 1, ds -> {
                 JsonNode datasets = fetchDatasetsByTest(test.id);
                 assertEquals(1, datasets.get("total").asInt());
                 assertEquals(1, datasets.get("datasets").size());
@@ -471,20 +445,17 @@ public class DatasetServiceTest extends BaseServiceTest {
         Test test = createExampleTest("private-test");
         test.access = Access.PRIVATE;
         test = createTest(test);
-        int testId = test.id;
 
-        BlockingQueue<Dataset.LabelsUpdatedEvent> updateQueue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, testId);
         long timestamp = System.currentTimeMillis();
         uploadRun(timestamp, timestamp,
                 JsonNodeFactory.instance.objectNode().put("$schema", schema.uri).put("value", 42),
                 test.name, TESTER_ROLES[0], Access.PRIVATE);
+        checkAndPropagate("dataset-event", 1);
 
-        Dataset.LabelsUpdatedEvent event = updateQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(event);
-
+        assertEquals(1, DatasetDAO.count());
         try (CloseMe ignored = roleManager.withRoles(Arrays.asList(TESTER_ROLES))) {
-            List<LabelValueDAO> labels = LabelValueDAO.<LabelValueDAO> find("datasetId", event.datasetId).list();
+            List<LabelValueDAO> labels = LabelValueDAO
+                    .<LabelValueDAO> find("datasetId", ((DatasetDAO) DatasetDAO.findAll().list().get(0)).id).list();
             assertEquals(1, labels.size());
         }
     }
@@ -493,8 +464,6 @@ public class DatasetServiceTest extends BaseServiceTest {
     public void testDatasetListOrdering() {
         String testname = "road-runner";
         Test test = createTest(createExampleTest(testname));
-        BlockingQueue<Dataset.LabelsUpdatedEvent> updateQueue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
         long timestamp = System.currentTimeMillis();
         int initialRunID = uploadRun(timestamp, timestamp,
                 JsonNodeFactory.instance.objectNode(),
@@ -503,12 +472,13 @@ public class DatasetServiceTest extends BaseServiceTest {
         int latterRunID = uploadRun(timestamp, timestamp,
                 JsonNodeFactory.instance.objectNode(),
                 test.name);
+        checkAndPropagate("dataset-event", 2);
+
         DatasetService.DatasetList datasetsList = listTestDatasets(test.id, null);
         assertEquals(2, datasetsList.datasets.size());
         assertEquals(0, datasetsList.datasets.get(0).ordinal);
         assertEquals(initialRunID, datasetsList.datasets.get(1).runId);
         assertEquals(latterRunID, datasetsList.datasets.get(0).runId);
-        datasetsList = null;
         datasetsList = listTestDatasets(test.id, SortDirection.Ascending);
         assertEquals(2, datasetsList.datasets.size());
         assertEquals(initialRunID, datasetsList.datasets.get(0).runId);
