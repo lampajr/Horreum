@@ -528,9 +528,6 @@ public class AlertingServiceImpl implements AlertingService {
         }
         DataPoint.DatasetProcessedEvent event = new DataPoint.DatasetProcessedEvent(DatasetMapper.fromInfo(dataset.getInfo()),
                 notify);
-        if (mediator.testMode())
-            Util.registerTxSynchronization(tm,
-                    txStatus -> mediator.publishEvent(AsyncEventChannels.DATAPOINT_PROCESSED, dataset.testid, event));
         mediator.dataPointsProcessed(event);
     }
 

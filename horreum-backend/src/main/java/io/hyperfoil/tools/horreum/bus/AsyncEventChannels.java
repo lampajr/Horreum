@@ -2,16 +2,11 @@ package io.hyperfoil.tools.horreum.bus;
 
 public enum AsyncEventChannels {
     DATAPOINT_NEW,
-    DATAPOINT_PROCESSED,
     DATASET_NEW,
-    DATASET_UPDATED_LABELS,
     DATASET_MISSING_VALUES,
-    DATASET_CHANGES_NEW,
     TEST_NEW,
     TEST_DELETED,
     RUN_NEW,
     CHANGE_NEW,
     EXPERIMENT_RESULT_NEW,
-    SCHEMA_SYNC,
-    FOOBAR
 }
