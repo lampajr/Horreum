@@ -616,11 +616,8 @@ public class BaseServiceTest {
         return array;
     }
 
-    protected BlockingQueue<Integer> trashRun(int runId, Integer testId) throws InterruptedException {
-        BlockingQueue<Integer> trashedQueue = serviceMediator.getEventQueue(AsyncEventChannels.RUN_TRASHED, testId);
+    protected void trashRun(int runId) {
         jsonRequest().post("/api/run/" + runId + "/trash").then().statusCode(204);
-        assertEquals(runId, trashedQueue.poll(10, TimeUnit.SECONDS));
-        return trashedQueue;
     }
 
     protected <T> T withExampleDataset(Test test, JsonNode data, Function<Dataset, T> testLogic) {

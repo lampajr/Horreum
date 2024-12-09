@@ -118,9 +118,7 @@ public class LogServiceTest extends BaseServiceTest {
                 .then().statusCode(200).extract().body().as(new ParameterizedTypeImpl(List.class, ActionLog.class));
         assertEquals(actionCountLog, actionLogs.size());
 
-        BlockingQueue<Integer> runTrashedEvents = serviceMediator.getEventQueue(AsyncEventChannels.RUN_TRASHED, test.id);
         deleteTest(test);
-        assertNotNull(runTrashedEvents.poll(10, TimeUnit.SECONDS));
 
         datasetLogCount = jsonRequest()
                 .auth()

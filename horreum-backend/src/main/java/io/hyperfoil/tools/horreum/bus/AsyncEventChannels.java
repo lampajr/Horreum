@@ -11,7 +11,6 @@ public enum AsyncEventChannels {
     TEST_NEW,
     TEST_DELETED,
     RUN_NEW,
-    RUN_TRASHED,
     RUN_VALIDATED,
     CHANGE_NEW,
     EXPERIMENT_RESULT_NEW,

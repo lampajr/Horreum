@@ -21,10 +21,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.hyperfoil.tools.horreum.api.data.ExportedLabelValues;
-import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import org.apache.groovy.util.Maps;
 import org.hibernate.query.NativeQuery;
 import org.junit.jupiter.api.TestInfo;
@@ -34,6 +30,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.hyperfoil.tools.horreum.action.ExperimentResultToMarkdown;
 import io.hyperfoil.tools.horreum.api.SortDirection;
@@ -43,6 +41,7 @@ import io.hyperfoil.tools.horreum.api.data.Action;
 import io.hyperfoil.tools.horreum.api.data.ActionLog;
 import io.hyperfoil.tools.horreum.api.data.Dataset;
 import io.hyperfoil.tools.horreum.api.data.ExperimentProfile;
+import io.hyperfoil.tools.horreum.api.data.ExportedLabelValues;
 import io.hyperfoil.tools.horreum.api.data.Extractor;
 import io.hyperfoil.tools.horreum.api.data.FingerprintValue;
 import io.hyperfoil.tools.horreum.api.data.Fingerprints;
@@ -65,6 +64,7 @@ import io.hyperfoil.tools.horreum.entity.data.ActionDAO;
 import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
 import io.hyperfoil.tools.horreum.entity.data.RunDAO;
 import io.hyperfoil.tools.horreum.entity.data.TestDAO;
+import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import io.hyperfoil.tools.horreum.mapper.VariableMapper;
 import io.hyperfoil.tools.horreum.server.CloseMe;
 import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
@@ -127,11 +127,9 @@ class TestServiceTest extends BaseMockedAsyncServiceTest {
 
         jsonRequest().get("/api/test/summary?roles=__my").then().statusCode(200);
 
-        BlockingQueue<Integer> events = serviceMediator.getEventQueue(AsyncEventChannels.RUN_TRASHED, test.id);
         deleteTest(test);
-        assertNotNull(events.poll(10, TimeUnit.SECONDS));
-
         em.clear();
+
         try (CloseMe ignored = roleManager.withRoles(Arrays.asList(TESTER_ROLES))) {
             assertNull(TestDAO.findById(test.id));
             // There's no constraint between runs and tests; therefore the run is not deleted

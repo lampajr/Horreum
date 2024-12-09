@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -17,8 +16,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
 
@@ -78,7 +75,7 @@ import io.restassured.specification.RequestSpecification;
 public class RunServiceTest extends BaseMockedAsyncServiceTest {
 
     @org.junit.jupiter.api.Test
-    public void testTransformationNoSchemaInData(TestInfo info) throws InterruptedException {
+    public void testTransformationNoSchemaInData(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -104,7 +101,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
 
         em.clear();
 
-        BlockingQueue<Integer> trashedQueue = trashRun(runId, test.id);
+        trashRun(runId);
 
         RunDAO run = RunDAO.findById(runId);
         assertNotNull(run);
@@ -115,7 +112,6 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
 
         // reinstate the run
         jsonRequest().post("/api/run/" + runId + "/trash?isTrashed=false").then().statusCode(204);
-        assertNull(trashedQueue.poll(50, TimeUnit.MILLISECONDS));
         run = RunDAO.findById(runId);
         assertFalse(run.trashed);
     }
@@ -283,7 +279,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void labelValuesPublicTestPublicRun(TestInfo info) throws InterruptedException {
+    public void labelValuesPublicTestPublicRun(TestInfo info) {
         Test test = createExampleTest(getTestName(info));
         test.access = Access.PUBLIC;
         createTest(test);
@@ -309,7 +305,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationWithoutSchemaInUpload(TestInfo info) throws InterruptedException {
+    public void testTransformationWithoutSchemaInUpload(TestInfo info) {
         Test test = createTest(createExampleTest(getTestName(info)));
 
         setTestVariables(test, "Value", new Label("value", 1));
@@ -322,7 +318,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationWithoutExtractorsAndBlankFunction(TestInfo info) throws InterruptedException {
+    public void testTransformationWithoutExtractorsAndBlankFunction(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -342,7 +338,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationWithExtractorAndBlankFunction(TestInfo info) throws InterruptedException {
+    public void testTransformationWithExtractorAndBlankFunction(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -362,7 +358,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationWithNestedSchema(TestInfo info) throws InterruptedException {
+    public void testTransformationWithNestedSchema(TestInfo info) {
         Schema acmeSchema = createExampleSchema("AcmeCorp", "AcmeInc", "AcmeRrUs", false);
         Schema roadRunnerSchema = createExampleSchema("RoadRunnerCorp", "RoadRunnerInc", "RoadRunnerRrUs", false);
 
@@ -391,7 +387,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationSingleSchemaTestWithoutTransformer(TestInfo info) throws InterruptedException {
+    public void testTransformationSingleSchemaTestWithoutTransformer(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -411,7 +407,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationNestedSchemasWithoutTransformers(TestInfo info) throws InterruptedException {
+    public void testTransformationNestedSchemasWithoutTransformers(TestInfo info) {
         Test test = createTest(createExampleTest(getTestName(info)));
         Schema schemaA = createExampleSchema("Ada", "Ada", "Ada", false);
         Schema schemaB = createExampleSchema("Bdb", "Bdb", "Bdb", false);
@@ -439,7 +435,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationUsingSameSchemaInBothLevelsTestWithoutTransformer(TestInfo info) throws InterruptedException {
+    public void testTransformationUsingSameSchemaInBothLevelsTestWithoutTransformer(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -498,7 +494,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testSelectRunBySchema(TestInfo info) throws InterruptedException {
+    public void testSelectRunBySchema(TestInfo info) {
         Schema schemaA = createExampleSchema("Aba", "Aba", "Aba", false);
         Test test = createTest(createExampleTest(getTestName(info)));
 
@@ -516,7 +512,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testTransformationChoosingSchema(TestInfo info) throws InterruptedException {
+    public void testTransformationChoosingSchema(TestInfo info) {
         Schema schemaA = createExampleSchema("Aba", "Aba", "Aba", false);
         Extractor path = new Extractor("value", "$.value", false);
         Transformer transformerA = createTransformer("A", schemaA, "value => ({\"by\": \"A\"})", path);
@@ -549,7 +545,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testSchemaTransformerWithExtractorProducingNullValue(TestInfo info) throws InterruptedException {
+    public void testSchemaTransformerWithExtractorProducingNullValue(TestInfo info) {
         Schema schema = createExampleSchema("DDDD", "DDDDInc", "DDDDRrUs", true);
         Extractor scalarPath = new Extractor("sheep", "$.duff", false);
         Transformer scalarTransformer = createTransformer("tranProcessNullExtractorValue", schema,
@@ -572,7 +568,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
         assertTrue(sheep.isEmpty());
     }
 
-    private void testTransformationWithoutMatch(TestInfo info, Schema schema, ObjectNode data) throws InterruptedException {
+    private void testTransformationWithoutMatch(TestInfo info, Schema schema, ObjectNode data) {
         Extractor firstMatch = new Extractor("foo", "$.foo", false);
         Extractor allMatches = new Extractor("bar", "$.bar[*].x", false);
         allMatches.isArray = true;
@@ -613,7 +609,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testRecalculateDatasets() throws InterruptedException {
+    public void testRecalculateDatasets() {
         withExampleDataset(createTest(createExampleTest("dummy")), JsonNodeFactory.instance.objectNode(), ds -> {
             Util.withTx(tm, () -> {
                 try (CloseMe ignored = roleManager.withRoles(SYSTEM_ROLES)) {
@@ -729,7 +725,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testUploadWithMetadata() throws InterruptedException {
+    public void testUploadWithMetadata() {
         Test test = createTest(createExampleTest("with_meta"));
         createSchema("Foo", "urn:foo");
         createSchema("Bar", "urn:bar");
@@ -745,7 +741,6 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
         ArrayNode metadata = JsonNodeFactory.instance.arrayNode();
         metadata.add(simpleObject("urn:bar", "bar", "yyy"));
         metadata.add(simpleObject("urn:goo", "goo", "zzz"));
-
 
         int run1 = uploadRun(now, data, metadata, test.name);
         checkAndPropagateDatasetEvents(1);
@@ -769,7 +764,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testChangeUploadRunSchemas(TestInfo info) throws InterruptedException {
+    public void testChangeUploadRunSchemas(TestInfo info) {
         Test exampleTest = createExampleTest(getTestName(info));
         Test test = createTest(exampleTest);
 
@@ -934,7 +929,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void runExperiment() throws InterruptedException {
+    public void runExperiment() {
         Test test = createExampleTest("supersecret");
         test = createTest(test);
 

@@ -985,9 +985,6 @@ public class RunServiceImpl implements RunService {
             trashConnectedDatasets(run.id, run.testid);
             run.trashed = true;
             run.persist();
-            if (mediator.testMode())
-                Util.registerTxSynchronization(tm,
-                        txStatus -> mediator.publishEvent(AsyncEventChannels.RUN_TRASHED, run.testid, id));
         }
         // if the run was trashed because of a deleted test we need to ensure that the test actually exist
         // before we try to recalculate the dataset

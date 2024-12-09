@@ -404,7 +404,7 @@ public class AlertingServiceTest extends BaseServiceTest {
         em.clear();
 
         pollMissingDataRuleResultsByDataset(thirdEvent.datasetId, 1);
-        trashRun(thirdRunId, test.id);
+        trashRun(thirdRunId);
         pollMissingDataRuleResultsByDataset(thirdEvent.datasetId, 0);
 
         alertingService.checkMissingDataset();
