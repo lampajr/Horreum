@@ -10,13 +10,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
-import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.Tuple;
 
@@ -38,11 +35,12 @@ import io.hyperfoil.tools.horreum.api.data.Transformer;
 import io.hyperfoil.tools.horreum.api.report.TableReport;
 import io.hyperfoil.tools.horreum.api.report.TableReportConfig;
 import io.hyperfoil.tools.horreum.api.services.SchemaService;
-import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
+import io.hyperfoil.tools.horreum.entity.ValidationErrorDAO;
 import io.hyperfoil.tools.horreum.entity.data.LabelDAO;
+import io.hyperfoil.tools.horreum.entity.data.RunDAO;
 import io.hyperfoil.tools.horreum.entity.data.SchemaDAO;
 import io.hyperfoil.tools.horreum.entity.data.TransformerDAO;
-import io.hyperfoil.tools.horreum.test.HorreumTestProfile;
+import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import io.hyperfoil.tools.horreum.test.PostgresResource;
 import io.hyperfoil.tools.horreum.test.TestUtil;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -198,52 +196,55 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
         Schema allowAnySchema = createSchema("any", allowAny.path("$id").asText(), allowAny);
         JsonNode allowNone = load("/allow-none.json");
         Schema allowNoneSchema = createSchema("none", allowNone.path("$id").asText(), allowNone);
+        checkAndPropagateSchemaEvents(2);
 
         Test test = createTest(createExampleTest("schemaTest"));
-        BlockingQueue<Schema.ValidationEvent> runValidations = serviceMediator.getEventQueue(AsyncEventChannels.RUN_VALIDATED,
-                test.id);
-        BlockingQueue<Schema.ValidationEvent> datasetValidations = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_VALIDATED, test.id);
 
         ArrayNode data = JsonNodeFactory.instance.arrayNode();
         data.addObject().put("$schema", allowAnySchema.uri).put("foo", "bar");
         data.addObject().put("$schema", allowNoneSchema.uri).put("foo", "bar");
         data.addObject().put("$schema", "urn:unknown:schema").put("foo", "bar");
         int runId = uploadRun(data.toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
+        RunDAO run = RunDAO.findById(runId);
 
-        Schema.ValidationEvent runValidation = runValidations.poll(10, TimeUnit.SECONDS);
-        assertNotNull(runValidation);
-        assertEquals(runId, runValidation.id);
+        Collection<ValidationErrorDAO> validationErrors = run.validationErrors;
         // one error for extra "foo" and one for "$schema"
-        assertEquals(2, runValidation.errors.size());
-        runValidation.errors.forEach(e -> {
+        assertEquals(2, validationErrors.size());
+        validationErrors.forEach(e -> {
             assertEquals(allowNoneSchema.id, e.getSchemaId());
             assertNotNull(e.error);
         });
 
-        Schema.ValidationEvent dsValidation = datasetValidations.poll(10, TimeUnit.SECONDS);
-        assertNotNull(dsValidation);
-        assertEquals(2, dsValidation.errors.size());
-        dsValidation.errors.forEach(e -> {
+        Collection<ValidationErrorDAO> datasetValidationErrors = run.datasets.stream().findFirst()
+                .orElseThrow().validationErrors;
+        assertNotNull(datasetValidationErrors);
+        assertEquals(2, datasetValidationErrors.size());
+        datasetValidationErrors.forEach(e -> {
             assertEquals(allowNoneSchema.id, e.getSchemaId());
             assertNotNull(e.error);
         });
-        assertEquals(0, runValidations.drainTo(new ArrayList<>()));
-        assertEquals(0, datasetValidations.drainTo(new ArrayList<>()));
 
         allowAnySchema.schema = allowNone.deepCopy();
         ((ObjectNode) allowAnySchema.schema).set("$id", allowAny.path("$id").deepCopy());
         addOrUpdateSchema(allowAnySchema);
+        checkAndPropagateSchemaEvents(1);
+        checkAndPropagateRunRecalcEvents(1);
 
-        Schema.ValidationEvent runValidation2 = runValidations.poll(10, TimeUnit.SECONDS);
-        assertNotNull(runValidation2);
-        assertEquals(runId, runValidation2.id);
+        // for some reason RunDAO is not up to date with the db data
+        // maybe because most of the ops happened async
+        // re-fetch the run to retrieve up-to-date info
+        em.clear();
+        run = RunDAO.findById(runId);
+
+        Collection<ValidationErrorDAO> validationErrors2 = run.validationErrors;
         // This time we get errors for both schemas
-        assertEquals(4, runValidation2.errors.size());
+        assertEquals(4, validationErrors2.size());
 
-        Schema.ValidationEvent datasetValidation2 = datasetValidations.poll(10, TimeUnit.SECONDS);
-        assertNotNull(datasetValidation2);
-        assertEquals(4, datasetValidation2.errors.size());
+        Collection<ValidationErrorDAO> datasetValidationErrors2 = run.datasets.stream().findFirst()
+                .orElseThrow().validationErrors;
+        assertNotNull(datasetValidationErrors2);
+        assertEquals(4, datasetValidationErrors2.size());
 
         assertEquals(4, em.createNativeQuery("SELECT COUNT(*)::int FROM run_validationerrors").getSingleResult());
         assertEquals(4, em.createNativeQuery("SELECT COUNT(*)::int FROM dataset_validationerrors").getSingleResult());
@@ -538,6 +539,7 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
         data.addObject().put("$schema", schemaUri).put("foo", "bar");
         data.addObject().put("$schema", schemaUri).put("foo", "bar");
         int runId = uploadRun(data.toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertTrue(runId > 0);
 
         // no validation errors
@@ -550,18 +552,16 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
 
         // create the schema afterward
         Schema schema = createSchema("Unknown schema", schemaUri);
+        checkAndPropagateSchemaEvents(1);
+        checkAndPropagateRunRecalcEvents(1);
+
         assertNotNull(schema);
         assertTrue(schema.id > 0);
 
-        TestUtil.eventually(() -> {
-            Util.withTx(tm, () -> {
-                List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
-                        .getResultList();
-                // two records as the run is an array of two objects, both referencing the same schema
-                assertEquals(2, runSchemas.size());
-                return null;
-            });
-        });
+        List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
+                .getResultList();
+        // two records as the run is an array of two objects, both referencing the same schema
+        assertEquals(2, runSchemas.size());
     }
 
     @org.junit.jupiter.api.Test
@@ -574,6 +574,7 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
         data.addObject().put("$schema", firstSchemaUri).put("foo", "bar");
         data.addObject().put("$schema", secondSchemaUri).put("foo", "zip");
         int runId = uploadRun(data.toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertTrue(runId > 0);
 
         // no validation errors
@@ -586,19 +587,16 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
 
         // create the schema 1 afterward
         Schema schema1 = createSchema("Unknown schema 1", firstSchemaUri);
+        checkAndPropagateSchemaEvents(1);
+        checkAndPropagateRunRecalcEvents(1);
         assertNotNull(schema1);
         assertTrue(schema1.id > 0);
 
-        TestUtil.eventually(() -> {
-            Util.withTx(tm, () -> {
-                List<Tuple> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1", Tuple.class)
-                        .setParameter(1, runId).getResultList();
-                // 1 record as the run is an array of two objects referencing different schemas and only the first one is created
-                assertEquals(1, runSchemas.size());
-                assertEquals(schema1.id, (int) runSchemas.get(0).get(3));
-                return null;
-            });
-        });
+        List<Tuple> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1", Tuple.class)
+                .setParameter(1, runId).getResultList();
+        // 1 record as the run is an array of two objects referencing different schemas and only the first one is created
+        assertEquals(1, runSchemas.size());
+        assertEquals(schema1.id, (int) runSchemas.get(0).get(3));
     }
 
     @org.junit.jupiter.api.Test
@@ -609,6 +607,7 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
         ObjectNode data = JsonNodeFactory.instance.objectNode();
         data.put("$schema", schemaUri).put("foo", "bar");
         int runId = uploadRun(data.toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertTrue(runId > 0);
 
         // no validation errors
@@ -621,18 +620,16 @@ class SchemaServiceTest extends BaseMockedAsyncServiceTest {
 
         // create the schema afterward
         Schema schema = createSchema("Unknown schema", schemaUri);
+        checkAndPropagateSchemaEvents(1);
+        checkAndPropagateRunRecalcEvents(1);
+
         assertNotNull(schema);
         assertTrue(schema.id > 0);
 
-        TestUtil.eventually(() -> {
-            Util.withTx(tm, () -> {
-                List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
-                        .getResultList();
-                // run has single object data, thus referencing one schema
-                assertEquals(1, runSchemas.size());
-                return null;
-            });
-        });
+        List<?> runSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
+                .getResultList();
+        // run has single object data, thus referencing one schema
+        assertEquals(1, runSchemas.size());
     }
 
     @org.junit.jupiter.api.Test

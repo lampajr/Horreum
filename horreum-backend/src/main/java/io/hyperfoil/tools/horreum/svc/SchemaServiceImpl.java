@@ -47,7 +47,6 @@ import io.hyperfoil.tools.horreum.api.data.Schema;
 import io.hyperfoil.tools.horreum.api.data.SchemaExport;
 import io.hyperfoil.tools.horreum.api.data.Transformer;
 import io.hyperfoil.tools.horreum.api.services.SchemaService;
-import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.bus.BlockingTaskDispatcher;
 import io.hyperfoil.tools.horreum.entity.ValidationErrorDAO;
 import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
@@ -56,11 +55,9 @@ import io.hyperfoil.tools.horreum.entity.data.RunDAO;
 import io.hyperfoil.tools.horreum.entity.data.SchemaDAO;
 import io.hyperfoil.tools.horreum.entity.data.TransformerDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
-import io.hyperfoil.tools.horreum.mapper.DatasetMapper;
 import io.hyperfoil.tools.horreum.mapper.LabelMapper;
 import io.hyperfoil.tools.horreum.mapper.SchemaMapper;
 import io.hyperfoil.tools.horreum.mapper.TransformerMapper;
-import io.hyperfoil.tools.horreum.mapper.ValidationErrorMapper;
 import io.hyperfoil.tools.horreum.server.WithRoles;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
@@ -299,12 +296,6 @@ public class SchemaServiceImpl implements SchemaService {
             validateData(run.metadata, schemaFilter, run.validationErrors);
         }
         run.persist();
-        if (mediator.testMode())
-            Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.RUN_VALIDATED, run.testid,
-                    new Schema.ValidationEvent(run.id, run.validationErrors.stream()
-                            .map(ValidationErrorMapper::fromValidationError).collect(Collectors.toList()))));
-
-        ;
     }
 
     @WithRoles(extras = Roles.HORREUM_SYSTEM)
@@ -342,10 +333,6 @@ public class SchemaServiceImpl implements SchemaService {
             }
             dataset.persist();
         }
-
-        if (mediator.testMode())
-            Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_VALIDATED,
-                    dataset.testid, new Schema.ValidationEvent(dataset.id, DatasetMapper.from(dataset).validationErrors)));
     }
 
     @WithRoles(extras = Roles.HORREUM_SYSTEM)
