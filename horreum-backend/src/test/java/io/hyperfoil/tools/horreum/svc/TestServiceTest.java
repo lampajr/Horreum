@@ -39,7 +39,6 @@ import io.hyperfoil.tools.horreum.api.alerting.Variable;
 import io.hyperfoil.tools.horreum.api.alerting.Watch;
 import io.hyperfoil.tools.horreum.api.data.Action;
 import io.hyperfoil.tools.horreum.api.data.ActionLog;
-import io.hyperfoil.tools.horreum.api.data.Dataset;
 import io.hyperfoil.tools.horreum.api.data.ExperimentProfile;
 import io.hyperfoil.tools.horreum.api.data.ExportedLabelValues;
 import io.hyperfoil.tools.horreum.api.data.Extractor;
@@ -121,9 +120,8 @@ class TestServiceTest extends BaseMockedAsyncServiceTest {
             assertNotNull(TestDAO.findById(test.id));
         }
 
-        BlockingQueue<Dataset.EventNew> dsQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
         int runId = uploadRun("{ \"foo\" : \"bar\" }", test.name);
-        assertNotNull(dsQueue.poll(10, TimeUnit.SECONDS));
+        checkAndPropagateDatasetEvents(1);
 
         jsonRequest().get("/api/test/summary?roles=__my").then().statusCode(200);
 
@@ -146,14 +144,10 @@ class TestServiceTest extends BaseMockedAsyncServiceTest {
         Test test = createTest(createExampleTest(getTestName(info)));
         Schema schema = createExampleSchema(info);
 
-        BlockingQueue<Dataset.EventNew> newDatasetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW,
-                test.id);
         final int NUM_DATASETS = 5;
         for (int i = 0; i < NUM_DATASETS; ++i) {
             uploadRun(runWithValue(i, schema), test.name);
-            Dataset.EventNew event = newDatasetQueue.poll(10, TimeUnit.SECONDS);
-            assertNotNull(event);
-            assertFalse(event.isRecalculation);
+            checkAndPropagateDatasetEvents(1);
         }
         List<DatasetDAO> datasets = DatasetDAO.list("testid", test.id);
         assertEquals(NUM_DATASETS, datasets.size());
@@ -166,12 +160,6 @@ class TestServiceTest extends BaseMockedAsyncServiceTest {
             assertEquals(NUM_DATASETS, status.totalRuns);
             return status.finished == status.totalRuns;
         });
-        for (int i = 0; i < NUM_DATASETS; ++i) {
-            Dataset.EventNew event = newDatasetQueue.poll(10, TimeUnit.SECONDS);
-            assertNotNull(event);
-            assertTrue(event.datasetId > maxId);
-            assertTrue(event.isRecalculation);
-        }
         datasets = DatasetDAO.list("testid", test.id);
         assertEquals(NUM_DATASETS, datasets.size());
         datasets.forEach(ds -> {

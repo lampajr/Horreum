@@ -8,8 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 import jakarta.inject.Inject;
 
@@ -28,7 +26,6 @@ import io.hyperfoil.tools.horreum.api.data.Test;
 import io.hyperfoil.tools.horreum.api.data.datastore.Datastore;
 import io.hyperfoil.tools.horreum.api.data.datastore.DatastoreType;
 import io.hyperfoil.tools.horreum.api.data.datastore.ElasticsearchDatastoreConfig;
-import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.entity.backend.DatastoreConfigDAO;
 import io.hyperfoil.tools.horreum.entity.data.DatasetDAO;
 import io.hyperfoil.tools.horreum.test.ElasticsearchTestProfile;
@@ -38,7 +35,7 @@ import io.quarkus.test.junit.TestProfile;
 @QuarkusTest
 @TestProfile(ElasticsearchTestProfile.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class DatasourceTest extends BaseServiceTest {
+public class DatasourceTest extends BaseMockedAsyncServiceTest {
 
     @ConfigProperty(name = "quarkus.elasticsearch.hosts")
     Optional<List<String>> hosts;
@@ -54,12 +51,9 @@ public class DatasourceTest extends BaseServiceTest {
     RestClient elasticRestClient;
 
     @org.junit.jupiter.api.Test
-    public void testRetrieveDataFromElastic(TestInfo info) throws InterruptedException {
+    public void testRetrieveDataFromElastic(TestInfo info) {
 
         TestConfig testConfig = createNewTestAndDatastores(info);
-
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW,
-                testConfig.test.id);
 
         String payload = """
                 {
@@ -70,15 +64,13 @@ public class DatasourceTest extends BaseServiceTest {
                 """.replace("{docID}", "f4a0c0ea-a3cc-4c2e-bb28-00d1a25b0135");
 
         List<Integer> runIDs = uploadRun(payload, testConfig.test.name, testConfig.schema.uri);
+        checkAndPropagateDatasetEvents(1);
 
         assertNotNull(runIDs);
         assertEquals(1, runIDs.size());
         assertTrue(runIDs.get(0) > 0);
 
-        Dataset.EventNew event = dataSetQueue.poll(10, TimeUnit.SECONDS);
-        Assertions.assertNotNull(event);
-
-        DatasetDAO ds = DatasetDAO.findById(event.datasetId);
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", runIDs.get(0)).firstResult();
         assertTrue(ds.data.isArray());
         assertEquals(1, ds.data.size());
         assertEquals(1047, ds.data.path(0).path("value").intValue());
@@ -110,7 +102,6 @@ public class DatasourceTest extends BaseServiceTest {
 
         assertNotNull(runIDs);
         assertEquals(4, runIDs.size());
-
     }
 
     @org.junit.jupiter.api.Test

@@ -64,13 +64,13 @@ public abstract class BaseMockedAsyncServiceTest extends BaseServiceTest {
      * @param expectedMessages number of expected messages to wait for
      */
     protected void checkAndPropagate(String channel, int expectedMessages) {
-        InMemorySource<Message<Dataset.EventNew>> incomingChannel = connector.source("%s-in".formatted(channel));
-        InMemorySink<Dataset.EventNew> outgoingChannel = connector.sink("%s-out".formatted(channel));
+        InMemorySource<Message<?>> incomingChannel = connector.source("%s-in".formatted(channel));
+        InMemorySink<?> outgoingChannel = connector.sink("%s-out".formatted(channel));
 
         await().until(() -> outgoingChannel.received().size() == expectedMessages);
         CountDownLatch latch = new CountDownLatch(expectedMessages);
         outgoingChannel.received().forEach(m -> {
-            Message<Dataset.EventNew> msgWithCallback = m.withAck(() -> {
+            Message<?> msgWithCallback = m.withAck(() -> {
                 latch.countDown();
                 return CompletableFuture.completedFuture(null);
             });

@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.hyperfoil.tools.horreum.api.alerting.*;
-import io.hyperfoil.tools.horreum.api.data.Dataset;
 import io.hyperfoil.tools.horreum.api.data.Extractor;
 import io.hyperfoil.tools.horreum.api.data.Fingerprints;
 import io.hyperfoil.tools.horreum.api.data.Label;
@@ -37,7 +36,7 @@ import io.hyperfoil.tools.horreum.entity.data.*;
 import io.hyperfoil.tools.horreum.mapper.LabelMapper;
 import io.hyperfoil.tools.horreum.server.CloseMe;
 import io.hyperfoil.tools.horreum.server.RoleManager;
-import io.hyperfoil.tools.horreum.test.HorreumTestProfile;
+import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import io.hyperfoil.tools.horreum.test.PostgresResource;
 import io.hyperfoil.tools.horreum.test.TestUtil;
 import io.quarkus.arc.impl.ParameterizedTypeImpl;
@@ -52,8 +51,8 @@ import io.restassured.common.mapper.TypeRef;
 @QuarkusTest
 @QuarkusTestResource(PostgresResource.class)
 @QuarkusTestResource(OidcWiremockTestResource.class)
-@TestProfile(HorreumTestProfile.class)
-public class AlertingServiceTest extends BaseServiceTest {
+@TestProfile(InMemoryAMQTestProfile.class)
+public class AlertingServiceTest extends BaseMockedAsyncServiceTest {
 
     @Inject
     RoleManager roleManager;
@@ -72,6 +71,7 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         BlockingQueue<DataPoint.Event> dpe = serviceMediator.getEventQueue(AsyncEventChannels.DATAPOINT_NEW, test.id);
         uploadRun(runWithValue(42, schema).toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
 
         DataPoint.Event event1 = dpe.poll(10, TimeUnit.SECONDS);
         assertNotNull(event1);
@@ -83,6 +83,7 @@ public class AlertingServiceTest extends BaseServiceTest {
                 .then().statusCode(204);
 
         uploadRun(runWithValue(0, schema).toString(), test.name);
+        checkAndPropagateDatasetEvents(1);
 
         DataPoint.Event event2 = dpe.poll(10, TimeUnit.SECONDS);
         assertNotNull(event2);
@@ -145,17 +146,24 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         long ts = System.currentTimeMillis();
         uploadRun(ts, ts, runWithValue(1, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 1);
         uploadRun(ts + 1, ts + 1, runWithValue(2, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 2);
+
         int run3 = uploadRun(ts + 2, ts + 2, runWithValue(1, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 1);
+
         int run4 = uploadRun(ts + 3, ts + 3, runWithValue(2, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 2);
 
         assertNull(changeQueue.poll(50, TimeUnit.MILLISECONDS));
 
         uploadRun(ts + 4, ts + 4, runWithValue(3, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 3);
 
         Change.Event changeEvent1 = changeQueue.poll(10, TimeUnit.SECONDS);
@@ -186,12 +194,14 @@ public class AlertingServiceTest extends BaseServiceTest {
         assertEquals(run3, changeEvent2.change.dataset.runId);
 
         int run6 = uploadRun(ts + 5, ts + 5, runWithValue(1.5, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 1.5);
 
         // mean of previous values is 1.5, now the min is 1.5 => no change
         assertNull(changeQueue.poll(50, TimeUnit.MILLISECONDS));
 
         uploadRun(ts + 6, ts + 6, runWithValue(2, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 2);
 
         // mean of previous is 2, the last value doesn't matter (1.5 is lower than 2 - 10%)
@@ -217,21 +227,27 @@ public class AlertingServiceTest extends BaseServiceTest {
         long ts = System.currentTimeMillis();
         for (int i = 0; i < 12; i += 3) {
             uploadRun(ts + i, ts + i, runWithValue(1, schema).put("config", "foo"), test.name);
+            checkAndPropagateDatasetEvents(1);
             assertValue(datapointQueue, 1);
             uploadRun(ts + i + 1, ts + i + 1, runWithValue(2, schema).put("config", "bar"), test.name);
+            checkAndPropagateDatasetEvents(1);
             assertValue(datapointQueue, 2);
             uploadRun(ts + i + 2, ts + i + 2, runWithValue(3, schema), test.name);
+            checkAndPropagateDatasetEvents(1);
             assertValue(datapointQueue, 3);
         }
         assertNull(changeQueue.poll(50, TimeUnit.MILLISECONDS));
 
         int run13 = uploadRun(ts + 12, ts + 12, runWithValue(2, schema).put("config", "foo"), test.name);
+        checkAndPropagateDatasetEvents(1);
+
         Change.Event changeEvent1 = changeQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(changeEvent1);
         assertEquals(run13, changeEvent1.change.dataset.runId);
         assertEquals(run13, changeEvent1.dataset.runId);
 
         int run14 = uploadRun(ts + 13, ts + 13, runWithValue(2, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         Change.Event changeEvent2 = changeQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(changeEvent2);
         assertEquals(run14, changeEvent2.change.dataset.runId);
@@ -251,6 +267,7 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         BlockingQueue<DataPoint.Event> datapointQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATAPOINT_NEW, testId);
         uploadRun(runWithValue(42, schema).put("foo", "aaa").put("bar", "bbb"), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 42);
 
         List<FingerprintDAO> fingerprintsBefore = FingerprintDAO.listAll();
@@ -360,17 +377,13 @@ public class AlertingServiceTest extends BaseServiceTest {
         int firstRuleId = addMissingDataRule(test, "my rule", jsonArray("value"), "value => value > 2", 10000);
         assertTrue(firstRuleId > 0);
 
-        BlockingQueue<Dataset.EventNew> newDatasetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW,
-                test.id);
         long now = System.currentTimeMillis();
-        uploadRun(now - 20000, runWithValue(3, schema), test.name);
-        Dataset.EventNew firstEvent = newDatasetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(firstEvent);
-        uploadRun(now - 5000, runWithValue(1, schema), test.name);
-        Dataset.EventNew secondEvent = newDatasetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(secondEvent);
-        // only the matching dataset will be present
-        pollMissingDataRuleResultsByRule(firstRuleId, firstEvent.datasetId);
+        int firstRunId = uploadRun(now - 20000, runWithValue(3, schema), test.name);
+        int secondRunId = uploadRun(now - 5000, runWithValue(1, schema), test.name);
+        checkAndPropagateDatasetEvents(2);
+
+        int firstDataset = ((DatasetDAO) DatasetDAO.find("run.id = ?1", firstRunId).firstResult()).id;
+        pollMissingDataRuleResultsByRule(firstRuleId, firstDataset);
 
         alertingService.checkMissingDataset();
         assertEquals(1, notifications.size());
@@ -395,24 +408,25 @@ public class AlertingServiceTest extends BaseServiceTest {
         em.clear();
 
         int thirdRunId = uploadRun(now - 5000, runWithValue(3, schema), test.name);
-        Dataset.EventNew thirdEvent = newDatasetQueue.poll(10, TimeUnit.SECONDS);
-        assertNotNull(thirdEvent);
-        pollMissingDataRuleResultsByRule(firstRuleId, firstEvent.datasetId, thirdEvent.datasetId);
+        checkAndPropagateDatasetEvents(1);
+
+        int thirdDataset = ((DatasetDAO) DatasetDAO.find("run.id = ?1", thirdRunId).firstResult()).id;
+        pollMissingDataRuleResultsByRule(firstRuleId, firstDataset, thirdDataset);
         alertingService.checkMissingDataset();
         assertEquals(1, notifications.size());
 
         em.clear();
 
-        pollMissingDataRuleResultsByDataset(thirdEvent.datasetId, 1);
+        pollMissingDataRuleResultsByDataset(thirdDataset, 1);
         trashRun(thirdRunId);
-        pollMissingDataRuleResultsByDataset(thirdEvent.datasetId, 0);
+        pollMissingDataRuleResultsByDataset(thirdDataset, 0);
 
         alertingService.checkMissingDataset();
         assertEquals(2, notifications.size());
         assertEquals("my rule", notifications.get(1));
 
         int otherRuleId = addMissingDataRule(test, null, null, null, 10000);
-        pollMissingDataRuleResultsByRule(otherRuleId, firstEvent.datasetId, secondEvent.datasetId);
+        pollMissingDataRuleResultsByRule(otherRuleId, firstDataset, secondRunId);
         alertingService.checkMissingDataset();
         assertEquals(2, notifications.size());
 
@@ -555,6 +569,7 @@ public class AlertingServiceTest extends BaseServiceTest {
                 test.id);
 
         uploadRun(runWithValue(42, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         DataPoint first = assertValue(datapointQueue, 42);
 
         assertNotNull(DataPointDAO.findById(first.id));
@@ -610,19 +625,23 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         long ts = System.currentTimeMillis();
         uploadRun(ts, ts, runWithValue(4, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 4);
         uploadRun(ts + 1, ts + 1, runWithValue(3, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 3);
         // lower bound is inclusive, no change
         assertNull(changeQueue.poll(50, TimeUnit.MILLISECONDS));
 
         int run3 = uploadRun(ts + 2, ts + 2, runWithValue(2, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 2);
         Change.Event changeEvent1 = changeQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(changeEvent1);
         assertEquals(run3, changeEvent1.change.dataset.runId);
 
         int run4 = uploadRun(ts + 3, ts + 3, runWithValue(6, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         assertValue(datapointQueue, 6);
         Change.Event changeEvent2 = changeQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(changeEvent2);
@@ -642,14 +661,17 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         long ts = System.currentTimeMillis();
         uploadRun(ts, ts, runWithValue(1, schema).put("timestamp", 1662023776000L), test.name);
+        checkAndPropagateDatasetEvents(1);
         DataPoint.Event dp11 = datapointQueue.poll(10, TimeUnit.SECONDS);
         assertEquals(Instant.ofEpochSecond(1662023776), dp11.dataPoint.timestamp);
 
         uploadRun(ts - 1, ts - 1, runWithValue(2, schema).put("timestamp", "1662023777000"), test.name);
+        checkAndPropagateDatasetEvents(1);
         DataPoint.Event dp12 = datapointQueue.poll(10, TimeUnit.SECONDS);
         assertEquals(Instant.ofEpochSecond(1662023777), dp12.dataPoint.timestamp);
 
         uploadRun(ts + 1, ts + 1, runWithValue(3, schema).put("timestamp", "2022-09-01T11:16:18+02:00"), test.name);
+        checkAndPropagateDatasetEvents(1);
         DataPoint.Event dp13 = datapointQueue.poll(10, TimeUnit.SECONDS);
         assertEquals(Instant.ofEpochSecond(1662023778), dp13.dataPoint.timestamp);
 
@@ -697,11 +719,13 @@ public class AlertingServiceTest extends BaseServiceTest {
 
         long ts = System.currentTimeMillis();
         uploadRun(ts, ts, runWithValue(1, schema), test.name);
+        checkAndPropagateDatasetEvents(1);
         DataPoint.Event dpe1 = datapointQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(dpe1);
 
         // The datapoint will have to be recalculated due to label function update
         updateLabel(schema, label.id, label.name, "val => val", label.extractors.toArray(Extractor[]::new));
+        checkAndPropagateDatasetEvents(1);
         DataPoint.Event dpe2 = datapointQueue.poll(10, TimeUnit.SECONDS);
         assertNotNull(dpe2);
 

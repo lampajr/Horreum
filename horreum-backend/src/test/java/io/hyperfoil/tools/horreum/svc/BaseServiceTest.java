@@ -11,7 +11,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -66,7 +65,6 @@ import io.hyperfoil.tools.horreum.entity.alerting.*;
 import io.hyperfoil.tools.horreum.entity.data.*;
 import io.hyperfoil.tools.horreum.experiment.RelativeDifferenceExperimentModel;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
-import io.hyperfoil.tools.horreum.mapper.DatasetMapper;
 import io.hyperfoil.tools.horreum.server.CloseMe;
 import io.hyperfoil.tools.horreum.server.RoleManager;
 import io.quarkus.arc.impl.ParameterizedTypeImpl;
@@ -620,80 +618,6 @@ public class BaseServiceTest {
         jsonRequest().post("/api/run/" + runId + "/trash").then().statusCode(204);
     }
 
-    protected <T> T withExampleDataset(Test test, JsonNode data, Function<Dataset, T> testLogic) {
-        BlockingQueue<Dataset.EventNew> dataSetQueue = serviceMediator.getEventQueue(AsyncEventChannels.DATASET_NEW, test.id);
-        try {
-            RunDAO run = new RunDAO();
-            tm.begin();
-            try (CloseMe ignored = roleManager.withRoles(Arrays.asList(UPLOADER_ROLES))) {
-                run.data = data;
-                run.testid = test.id;
-                run.start = run.stop = Instant.now();
-                run.owner = UPLOADER_ROLES[0];
-                log.debugf("Creating new Run via API: %s", run.toString());
-
-                Response response = jsonRequest()
-                        .auth()
-                        .oauth2(getUploaderToken())
-                        .body(run)
-                        .post("/api/run/test");
-                run.id = response.body().as(Integer.class);
-                log.debugf("Run ID: %d, for test ID: %d", run.id, run.testid);
-            } finally {
-                if (tm.getTransaction().getStatus() == Status.STATUS_ACTIVE) {
-                    tm.commit();
-                } else {
-                    tm.rollback();
-                    fail();
-                }
-            }
-            Dataset.EventNew event = dataSetQueue.poll(10, TimeUnit.SECONDS);
-            assertNotNull(event);
-            assertTrue(event.datasetId > 0);
-            // only to cover the summary call in API
-            jsonRequest().get("/api/dataset/" + event.datasetId + "/summary").then().statusCode(200);
-            T value = testLogic.apply(DatasetMapper.from(
-                    DatasetDAO.<DatasetDAO> findById(event.datasetId)));
-            tm.begin();
-            Throwable error = null;
-            try (CloseMe ignored = roleManager.withRoles(SYSTEM_ROLES)) {
-                DatasetDAO oldDs = DatasetDAO.findById(event.datasetId);
-                if (oldDs != null) {
-                    oldDs.delete();
-                }
-                DatasetDAO.delete("run.id", run.id);
-                RunDAO.findById(run.id).delete();
-            } catch (Throwable t) {
-                error = t;
-            } finally {
-                if (tm.getTransaction().getStatus() == Status.STATUS_ACTIVE) {
-                    tm.commit();
-                } else {
-                    tm.rollback();
-                    fail(error);
-                }
-            }
-            return value;
-        } catch (Exception e) {
-            fail(e);
-            return null;
-        }
-    }
-
-    protected void addToken(Test test, int permissions, String value) {
-        ObjectNode token = JsonNodeFactory.instance.objectNode();
-        token.put("value", value);
-        token.put("permissions", permissions);
-        token.put("description", "blablabla");
-
-        jsonRequest().header(HttpHeaders.CONTENT_TYPE, "application/json").body(token.toString())
-                .post("/api/test/" + test.id + "/addToken").then().statusCode(200);
-    }
-
-    protected RequestSpecification bareRequest() {
-        return RestAssured.given().auth().oauth2(getTesterToken());
-    }
-
     protected void addTransformer(Test test, Transformer... transformers) {
         List<Integer> ids = new ArrayList<>();
         assertNotNull(test.id);
@@ -728,30 +652,6 @@ public class BaseServiceTest {
 
     protected String postFunctionSchemaUri(Schema s) {
         return "uri:" + s.name + "-post-function";
-    }
-
-    protected boolean checkTestId(int datasetId, int testId) {
-        return Util.withTx(tm, () -> {
-            try (CloseMe ignored = roleManager.withRoles(Collections.singleton(Roles.HORREUM_SYSTEM))) {
-                List<?> list = em.createNativeQuery("SELECT testid FROM dataset WHERE id = ?1").setParameter(1, datasetId)
-                        .getResultList();
-                if (1 != list.size()) {
-                    throw new RuntimeException("Retry TX");
-                }
-                return testId == (int) list.get(0);
-            }
-        });
-    }
-
-    protected boolean checkRunTestId(int runId, int testId) {
-        return Util.withTx(tm, () -> {
-            try (CloseMe ignored = roleManager.withRoles(Collections.singleton(Roles.HORREUM_SYSTEM))) {
-                List<?> list = em.createNativeQuery("SELECT testid FROM run WHERE id = ?1").setParameter(1, runId)
-                        .getResultList();
-                assertEquals(1, list.size());
-                return testId == (int) list.get(0);
-            }
-        });
     }
 
     protected void addAllowedSite(String prefix) {

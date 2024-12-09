@@ -1383,10 +1383,6 @@ public class RunServiceImpl implements RunService {
             try {
                 Dataset.EventNew event = new Dataset.EventNew(DatasetMapper.from(ds), true);
                 mediator.onNewDataset(event);
-                if (mediator.testMode())
-                    Util.registerTxSynchronization(tm,
-                            txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_NEW, ds.testid,
-                                    event));
             } catch (TransactionRequiredException tre) {
                 log.error(
                         "Failed attempt to persist and send Dataset event during inactive Transaction. Likely due to prior error.",
@@ -1403,9 +1399,6 @@ public class RunServiceImpl implements RunService {
 
     private void queueDatasetProcessing(DatasetDAO ds, boolean isRecalculation) {
         mediator.queueDatasetEvents(new Dataset.EventNew(DatasetMapper.from(ds), isRecalculation));
-        if (mediator.testMode())
-            Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_NEW, ds.testid,
-                    new Dataset.EventNew(DatasetMapper.from(ds), isRecalculation)));
     }
 
     @WithRoles(extras = Roles.HORREUM_SYSTEM)

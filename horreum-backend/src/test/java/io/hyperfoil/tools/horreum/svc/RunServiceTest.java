@@ -610,7 +610,7 @@ public class RunServiceTest extends BaseMockedAsyncServiceTest {
 
     @org.junit.jupiter.api.Test
     public void testRecalculateDatasets() {
-        withExampleDataset(createTest(createExampleTest("dummy")), JsonNodeFactory.instance.objectNode(), ds -> {
+        withExampleDataset(createTest(createExampleTest("dummy")), JsonNodeFactory.instance.objectNode(), 1, ds -> {
             Util.withTx(tm, () -> {
                 try (CloseMe ignored = roleManager.withRoles(SYSTEM_ROLES)) {
                     DatasetDAO dbDs = DatasetDAO.findById(ds.id);
