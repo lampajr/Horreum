@@ -18,6 +18,7 @@ import io.hyperfoil.tools.horreum.api.report.TableReport;
 import io.hyperfoil.tools.horreum.api.report.TableReportConfig;
 import io.hyperfoil.tools.horreum.bus.AsyncEventChannels;
 import io.hyperfoil.tools.horreum.test.HorreumTestProfile;
+import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import io.hyperfoil.tools.horreum.test.PostgresResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -27,8 +28,8 @@ import io.quarkus.test.oidc.server.OidcWiremockTestResource;
 @QuarkusTest
 @QuarkusTestResource(PostgresResource.class)
 @QuarkusTestResource(OidcWiremockTestResource.class)
-@TestProfile(HorreumTestProfile.class)
-public class ReportServiceTest extends BaseServiceTest {
+@TestProfile(InMemoryAMQTestProfile.class)
+public class ReportServiceTest extends BaseMockedAsyncServiceTest {
 
     @org.junit.jupiter.api.Test
     public void testNoFilter() throws InterruptedException {
@@ -128,10 +129,8 @@ public class ReportServiceTest extends BaseServiceTest {
         Test test = createTest(createExampleTest("missing"));
         createComparisonSchema();
 
-        BlockingQueue<Dataset.LabelsUpdatedEvent> queue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
         int runId = uploadRun(JsonNodeFactory.instance.objectNode(), test.name);
-        assertNotNull(queue.poll(10, TimeUnit.SECONDS));
+        checkAndPropagateDatasetEvents(1);
 
         TableReportConfig config = newExampleTableReportConfig(test);
         TableReport report = jsonRequest().body(config).post("/api/report/table/config")
@@ -152,10 +151,8 @@ public class ReportServiceTest extends BaseServiceTest {
         Test test = createTest(createExampleTest("previewMissingComponent"));
         createComparisonSchema();
 
-        BlockingQueue<Dataset.LabelsUpdatedEvent> queue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
         int runId = uploadRun(JsonNodeFactory.instance.objectNode(), test.name);
-        assertNotNull(queue.poll(10, TimeUnit.SECONDS));
+        checkAndPropagateDatasetEvents(1);
 
         TableReportConfig config = newExampleTableReportConfig(test);
         TableReport report = jsonRequest().body(config).post("/api/report/table/config")

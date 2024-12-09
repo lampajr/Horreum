@@ -1001,28 +1001,7 @@ public class BaseServiceTest {
         addLabel(schema, "throughput", null, new Extractor("throughput", "$.throughput", false));
     }
 
-    protected void uploadExampleRuns(Test test) throws InterruptedException {
-        BlockingQueue<Dataset.LabelsUpdatedEvent> queue = serviceMediator
-                .getEventQueue(AsyncEventChannels.DATASET_UPDATED_LABELS, test.id);
-
-        long ts = System.currentTimeMillis();
-        uploadRun(ts - 1, createRunData("production", "windows", "jvm", 1, 0.5, 150_000_000, 123), test.name);
-        uploadRun(ts - 2, createRunData("debug", "windows", "jvm", 2, 0.4, 120_000_000, 256), test.name);
-        uploadRun(ts - 3, createRunData("production", "linux", "jvm", 1, 0.4, 100_000_000, 135), test.name);
-        uploadRun(ts - 4, createRunData("debug", "linux", "jvm", 2, 0.3, 80_000_000, 260), test.name);
-        uploadRun(ts - 5, createRunData("production", "windows", "native", 1, 0.4, 50_000_000, 100), test.name);
-        uploadRun(ts - 6, createRunData("production", "windows", "native", 2, 0.3, 40_000_000, 200), test.name);
-        uploadRun(ts - 7, createRunData("production", "linux", "native", 1, 0.3, 30_000_000, 110), test.name);
-        uploadRun(ts - 8, createRunData("debug", "linux", "native", 2, 0.28, 20_000_000, 210), test.name);
-        // some older run that should be ignored
-        uploadRun(ts - 9, createRunData("production", "windows", "jvm", 2, 0.8, 150_000_000, 200), test.name);
-
-        for (int i = 0; i < 9; ++i) {
-            assertNotNull(queue.poll(1, TimeUnit.SECONDS));
-        }
-    }
-
-    private JsonNode createRunData(String variant, String os, String category, int clusterSize, double cpuUsage,
+    protected JsonNode createRunData(String variant, String os, String category, int clusterSize, double cpuUsage,
             long memoryUsage, long throughput) {
         ObjectNode data = JsonNodeFactory.instance.objectNode();
         return data.put("$schema", SCHEMA)

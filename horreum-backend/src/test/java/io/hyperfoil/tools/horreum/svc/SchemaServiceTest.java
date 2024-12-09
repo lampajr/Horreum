@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import io.hyperfoil.tools.horreum.test.InMemoryAMQTestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.Tuple;
 
@@ -53,8 +54,8 @@ import io.restassured.common.mapper.TypeRef;
 @QuarkusTest
 @QuarkusTestResource(PostgresResource.class)
 @QuarkusTestResource(OidcWiremockTestResource.class)
-@TestProfile(HorreumTestProfile.class)
-class SchemaServiceTest extends BaseServiceTest {
+@TestProfile(InMemoryAMQTestProfile.class)
+class SchemaServiceTest extends BaseMockedAsyncServiceTest {
 
     @Inject
     ServiceMediator serviceMediator;

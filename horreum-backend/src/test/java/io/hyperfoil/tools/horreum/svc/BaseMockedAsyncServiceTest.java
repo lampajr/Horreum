@@ -2,6 +2,7 @@ package io.hyperfoil.tools.horreum.svc;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.Instant;
@@ -9,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import jakarta.enterprise.inject.Any;
@@ -179,5 +181,20 @@ public abstract class BaseMockedAsyncServiceTest extends BaseServiceTest {
         } else {
             return "-1";
         }
+    }
+
+    protected void uploadExampleRuns(Test test) {
+        long ts = System.currentTimeMillis();
+        uploadRun(ts - 1, createRunData("production", "windows", "jvm", 1, 0.5, 150_000_000, 123), test.name);
+        uploadRun(ts - 2, createRunData("debug", "windows", "jvm", 2, 0.4, 120_000_000, 256), test.name);
+        uploadRun(ts - 3, createRunData("production", "linux", "jvm", 1, 0.4, 100_000_000, 135), test.name);
+        uploadRun(ts - 4, createRunData("debug", "linux", "jvm", 2, 0.3, 80_000_000, 260), test.name);
+        uploadRun(ts - 5, createRunData("production", "windows", "native", 1, 0.4, 50_000_000, 100), test.name);
+        uploadRun(ts - 6, createRunData("production", "windows", "native", 2, 0.3, 40_000_000, 200), test.name);
+        uploadRun(ts - 7, createRunData("production", "linux", "native", 1, 0.3, 30_000_000, 110), test.name);
+        uploadRun(ts - 8, createRunData("debug", "linux", "native", 2, 0.28, 20_000_000, 210), test.name);
+        // some older run that should be ignored
+        uploadRun(ts - 9, createRunData("production", "windows", "jvm", 2, 0.8, 150_000_000, 200), test.name);
+        checkAndPropagateDatasetEvents(9);
     }
 }
