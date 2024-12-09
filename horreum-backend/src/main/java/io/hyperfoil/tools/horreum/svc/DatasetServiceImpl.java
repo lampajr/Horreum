@@ -452,9 +452,6 @@ public class DatasetServiceImpl implements DatasetService {
 
         createFingerprint(datasetId, testId);
         mediator.updateLabels(new Dataset.LabelsUpdatedEvent(testId, datasetId, isRecalculation));
-        if (mediator.testMode())
-            Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_UPDATED_LABELS,
-                    testId, new Dataset.LabelsUpdatedEvent(testId, datasetId, isRecalculation)));
     }
 
     @Transactional

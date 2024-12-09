@@ -1,6 +1,7 @@
 package io.hyperfoil.tools.horreum.svc;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.Instant;
@@ -10,6 +11,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 
+import io.hyperfoil.tools.horreum.api.data.Extractor;
+import io.hyperfoil.tools.horreum.api.data.Schema;
 import jakarta.enterprise.inject.Any;
 import jakarta.inject.Inject;
 import jakarta.transaction.Status;
@@ -140,6 +143,29 @@ public abstract class BaseMockedAsyncServiceTest extends BaseServiceTest {
         } catch (Exception e) {
             fail(e);
             return null;
+        }
+    }
+
+    protected String labelValuesSetup(Test t, boolean load) {
+        Schema fooSchema = createSchema("foo", "urn:foo");
+        Extractor fooExtractor = new Extractor();
+        fooExtractor.name = "foo";
+        fooExtractor.jsonpath = "$.foo";
+        Extractor barExtractor = new Extractor();
+        barExtractor.name = "bar";
+        barExtractor.jsonpath = "$.bar";
+
+        addLabel(fooSchema, "labelFoo", "", fooExtractor);
+        addLabel(fooSchema, "labelBar", "", barExtractor);
+
+        if (load) {
+            List<Integer> ids = uploadRun("{ \"foo\": \"uno\", \"bar\": \"dox\"}", t.name, fooSchema.uri);
+            assertEquals(1, ids.size());
+            // ensure the dataset recal is getting processed
+            checkAndPropagate("dataset-event", 1);
+            return ids.get(0).toString();
+        } else {
+            return "-1";
         }
     }
 }
