@@ -110,7 +110,7 @@ public class RunServiceTest extends BaseServiceTest {
         assertNewDataset(dataSetQueue, runId);
         em.clear();
 
-        BlockingQueue<Integer> trashedQueue = trashRun(runId, test.id);
+        BlockingQueue<Integer> trashedQueue = trashRun(runId, test.id, true);
 
         RunDAO run = RunDAO.findById(runId);
         assertNotNull(run);
@@ -886,7 +886,6 @@ public class RunServiceTest extends BaseServiceTest {
 
         assertNotNull(schemaMap);
         assertNotEquals(0, schemaMap.size());
-
     }
 
     @org.junit.jupiter.api.Test
@@ -907,7 +906,7 @@ public class RunServiceTest extends BaseServiceTest {
         metadata.add(simpleObject("urn:bar", "bar", "yyy"));
         metadata.add(simpleObject("urn:goo", "goo", "zzz"));
 
-        int run1 = uploadRun(now, data, metadata, test.name);
+        uploadRun(now, data, metadata, test.name);
 
         RunService.RunsSummary runs = jsonRequest()
                 .get("/api/run/list?limit=10&page=1&query=$.*")
@@ -946,6 +945,37 @@ public class RunServiceTest extends BaseServiceTest {
         Integer runId = uploadRun("$.start", "$.stop", test.name, test.owner, Access.PUBLIC,
                 null, "test", payload).get(0);
         assertTrue(runId > 0);
+    }
+
+    @org.junit.jupiter.api.Test
+    public void testTrashAndReinstateRun() throws JsonProcessingException, InterruptedException {
+        Test test = createExampleTest("supersecret");
+        test.access = Access.PRIVATE;
+        test = createTest(test);
+        createSchema("Foo", "urn:foo");
+
+        JsonNode payload = new ObjectMapper().readTree(resourceToString("data/config-quickstart.jvm.json"));
+
+        Integer runId = uploadRun("$.start", "$.stop", test.name, test.owner, Access.PUBLIC,
+                "urn:foo", "test", payload).get(0);
+        assertTrue(runId > 0);
+
+        // double check run_schemas are properly created
+        int nRunSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
+                .getResultList().size();
+        assertEquals(1, nRunSchemas);
+
+        // ensure the run_schemas get deleted when trashing a run
+        trashRun(runId, test.id, true);
+        nRunSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
+                .getResultList().size();
+        assertEquals(0, nRunSchemas);
+
+        // ensure the run_schemas get re-created when un-trashing a run
+        trashRun(runId, test.id, false);
+        nRunSchemas = em.createNativeQuery("SELECT * FROM run_schemas WHERE runid = ?1").setParameter(1, runId)
+                .getResultList().size();
+        assertEquals(1, nRunSchemas);
     }
 
     @org.junit.jupiter.api.Test

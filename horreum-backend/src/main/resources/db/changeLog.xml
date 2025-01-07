@@ -4727,4 +4727,19 @@
             $$ LANGUAGE plpgsql;
         </sql>
     </changeSet>
+    <changeSet id="127" author="lampajr">
+        <validCheckSum>ANY</validCheckSum>
+        <sql>
+            -- drop triggers
+            DROP TRIGGER IF EXISTS rs_after_run_untrash ON run;
+            DROP TRIGGER IF EXISTS rs_after_run_update ON run;
+            DROP TRIGGER IF EXISTS before_schema_update ON schema;
+            DROP TRIGGER IF EXISTS ds_after_insert ON dataset;
+
+            -- drop functions
+            DROP FUNCTION rs_after_run_update;
+            DROP FUNCTION before_schema_update_func;
+            DROP FUNCTION ds_after_dataset_insert_func;
+        </sql>
+    </changeSet>
 </databaseChangeLog>
