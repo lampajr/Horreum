@@ -1168,7 +1168,7 @@ public class RunServiceTest extends BaseServiceTest {
             List<ExperimentService.ExperimentResult> experimentResults = runExperiments(maxDataset);
 
             assertNotNull(experimentResults);
-            assertTrue(experimentResults.size() > 0);
+            assertFalse(experimentResults.isEmpty());
 
             jsonRequest().auth().oauth2(getTesterToken())
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN)
@@ -1230,6 +1230,105 @@ public class RunServiceTest extends BaseServiceTest {
                 .as(RunService.RunsSummary.class);
         assertEquals(2, runs.runs.size());
         assertTrue(runs.runs.get(0).start.isBefore(runs.runs.get(1).start));
+    }
+
+    @org.junit.jupiter.api.Test
+    public void testDatasetsCreation() {
+        String name = "with_meta";
+        Test test = createTest(createExampleTest(name));
+        createSchema("Foo", "urn:foo");
+        createSchema("Bar", "urn:bar");
+
+        long now = System.currentTimeMillis();
+        ObjectNode data = simpleObject("urn:foo", "foo", "xxx");
+        ArrayNode metadata = JsonNodeFactory.instance.arrayNode();
+        metadata.add(simpleObject("urn:bar", "bar", "yyy"));
+
+        assertEquals(0, DatasetDAO.count());
+
+        uploadRun(now, data, metadata, test.name);
+        now = System.currentTimeMillis();
+        uploadRun(now, data, metadata, test.name);
+
+        assertEquals(2, RunDAO.count());
+        // datasets properly created
+        assertEquals(2, DatasetDAO.count());
+    }
+
+    @org.junit.jupiter.api.Test
+    public void testUpdateDescriptionPropagation() {
+        String name = "with_meta";
+        Test test = createTest(createExampleTest(name));
+        createSchema("Foo", "urn:foo");
+        createSchema("Bar", "urn:bar");
+
+        long now = System.currentTimeMillis();
+        ObjectNode data = simpleObject("urn:foo", "foo", "xxx");
+        ArrayNode metadata = JsonNodeFactory.instance.arrayNode();
+        metadata.add(simpleObject("urn:bar", "bar", "yyy"));
+
+        assertEquals(0, DatasetDAO.count());
+
+        int firstId = uploadRun(now, data, metadata, test.name);
+        now = System.currentTimeMillis();
+        uploadRun(now, data, metadata, test.name);
+
+        assertEquals(2, RunDAO.count());
+        // datasets properly created
+        assertEquals(2, DatasetDAO.count());
+
+        // update the description
+        jsonRequest().auth().oauth2(getTesterToken())
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN)
+                .body("a new description")
+                .post("/api/run/" + firstId + "/description")
+                .then()
+                .statusCode(204);
+
+        RunDAO run = RunDAO.findById(firstId);
+        assertNotNull(run);
+        assertEquals("a new description", run.description);
+
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", firstId).firstResult();
+        assertNotNull(ds);
+        assertEquals("a new description", ds.description);
+    }
+
+    @org.junit.jupiter.api.Test
+    public void testUpdateAccessPropagation() {
+        String name = "with_meta";
+        Test test = createTest(createExampleTest(name));
+        createSchema("Foo", "urn:foo");
+        createSchema("Bar", "urn:bar");
+
+        long now = System.currentTimeMillis();
+        ObjectNode data = simpleObject("urn:foo", "foo", "xxx");
+        ArrayNode metadata = JsonNodeFactory.instance.arrayNode();
+        metadata.add(simpleObject("urn:bar", "bar", "yyy"));
+
+        assertEquals(0, DatasetDAO.count());
+
+        int firstId = uploadRun(now, data, metadata, test.name);
+        now = System.currentTimeMillis();
+        uploadRun(now, data, metadata, test.name);
+
+        assertEquals(2, RunDAO.count());
+        // datasets properly created
+        assertEquals(2, DatasetDAO.count());
+
+        jsonRequest().auth().oauth2(getTesterToken())
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .post("/api/run/" + firstId + "/updateAccess?owner=" + UPLOADER_ROLES[0] + "&access=" + Access.PROTECTED)
+                .then()
+                .statusCode(204);
+
+        RunDAO run = RunDAO.findById(firstId);
+        assertNotNull(run);
+        assertEquals(Access.PROTECTED, run.access);
+
+        DatasetDAO ds = DatasetDAO.find("run.id = ?1", firstId).firstResult();
+        assertNotNull(ds);
+        assertEquals(Access.PROTECTED, ds.access);
     }
 
     private JsonNode getBySchema(JsonNode data, String schema) {

@@ -370,13 +370,13 @@ public class RunServiceImpl implements RunService {
     @Override
     // TODO: it would be nicer to use @FormParams but fetchival on client side doesn't support that
     public void updateAccess(int id, String owner, Access access) {
-        Query query = em.createNativeQuery(CHANGE_ACCESS);
-        query.setParameter(1, owner);
-        query.setParameter(2, access.ordinal());
-        query.setParameter(3, id);
-        if (query.executeUpdate() != 1) {
+        int updatedRecords = RunDAO.update("owner = ?1, access = ?2 WHERE id = ?3", owner, access, id);
+        if (updatedRecords != 1) {
             throw ServiceException.serverError("Access change failed (missing permissions?)");
         }
+
+        // propagate the same change to all datasets belonging to the run
+        DatasetDAO.update("owner = ?1, access = ?2 WHERE run.id = ?3", owner, access, id);
     }
 
     @RolesAllowed(Roles.UPLOADER)
@@ -1058,7 +1058,8 @@ public class RunServiceImpl implements RunService {
             throw ServiceException.notFound("Run not found: " + id);
         }
         run.description = description;
-        run.persistAndFlush();
+        // propagate the same change to all datasets belonging to the run
+        DatasetDAO.update("description = ?1 WHERE run.id = ?2", description, run.id);
     }
 
     @RolesAllowed(Roles.TESTER)

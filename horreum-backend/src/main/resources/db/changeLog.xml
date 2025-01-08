@@ -4742,4 +4742,14 @@
             DROP FUNCTION ds_after_dataset_insert_func;
         </sql>
     </changeSet>
+    <changeSet id="128" author="lampajr">
+        <validCheckSum>ANY</validCheckSum>
+        <sql>
+            -- drop triggers
+            DROP TRIGGER IF EXISTS after_run_update_non_data ON run;
+
+            -- drop functions
+            DROP FUNCTION after_run_update_non_data_func;
+        </sql>
+    </changeSet>
 </databaseChangeLog>
