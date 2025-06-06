@@ -470,10 +470,6 @@ public class DatasetServiceImpl implements DatasetService {
             return;
         }
 
-        // While any change should remove the label_value first via trigger it is possible
-        // that something triggers two events after each other, removing the data (twice)
-        // before the first event is processed. The second event would then find the label_value
-        // already present and would fail with a constraint violation.
         if (queryLabelId < 0) {
             LabelValueDAO.delete("datasetId", datasetId);
         } else {
@@ -484,8 +480,8 @@ public class DatasetServiceImpl implements DatasetService {
         Util.evaluateWithCombinationFunction(extracted,
                 (row) -> (String) row[2],
                 (row) -> (row[3] instanceof ArrayNode ? flatten((ArrayNode) row[3]) : (JsonNode) row[3]),
-                (row, result) -> createLabelValue(datasetId, testId, (int) row[0], Util.convertToJson(result)),
-                (row) -> createLabelValue(datasetId, testId, (int) row[0], (JsonNode) row[3]),
+                (row, result) -> createLabelValue(datasetId, (int) row[0], Util.convertToJson(result)),
+                (row) -> createLabelValue(datasetId, (int) row[0], (JsonNode) row[3]),
                 (row, e, jsCode) -> logMessage(datasetId, PersistentLogDAO.ERROR,
                         "Evaluation of label %s failed: '%s' Code:<pre>%s</pre>", row[0], e.getMessage(), jsCode),
                 (out) -> logMessage(datasetId, PersistentLogDAO.DEBUG, "Output while calculating labels: <pre>%s</pre>", out));
@@ -494,10 +490,11 @@ public class DatasetServiceImpl implements DatasetService {
         calcDatasetViews(datasetId);
 
         createFingerprint(datasetId, testId);
-        mediator.updateLabels(new Dataset.LabelsUpdatedEvent(testId, datasetId, isRecalculation));
+        Dataset.LabelsUpdatedEvent event = new Dataset.LabelsUpdatedEvent(testId, datasetId, isRecalculation);
+        mediator.updateLabels(event);
         if (mediator.testMode())
             Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_UPDATED_LABELS,
-                    testId, new Dataset.LabelsUpdatedEvent(testId, datasetId, isRecalculation)));
+                    testId, event));
     }
 
     @Transactional
@@ -587,7 +584,7 @@ public class DatasetServiceImpl implements DatasetService {
                 "We thought there's an error in one of the JSONPaths but independent validation did not find any problems.");
     }
 
-    private void createLabelValue(int datasetId, int testId, int labelId, JsonNode value) {
+    private void createLabelValue(int datasetId, int labelId, JsonNode value) {
         LabelValueDAO labelValue = new LabelValueDAO();
         labelValue.datasetId = datasetId;
         labelValue.labelId = labelId;

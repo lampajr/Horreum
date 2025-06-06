@@ -251,14 +251,13 @@ public class AlertingServiceImpl implements AlertingService {
                     onLabelsUpdated(event);
                     return null;
                 })));
-                return;
             } else {
                 //we have retried `horreum.alerting.updateLabel.retries` number of times, log a warning and stop retrying
                 Log.warnf("Unsuccessfully retried updating labels %d times for dataset %d. Stopping", this.labelCalcRetries,
                         event.datasetId);
                 retryCounterSet.remove(event.datasetId);
-                return;
             }
+            return;
         }
         if (event.isRecalculation) {
             sendNotifications = false;
