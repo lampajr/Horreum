@@ -1,0 +1,271 @@
+{
+  "access": "PUBLIC",
+  "owner": "perf-team",
+  "name": "horreum-perf",
+  "description": "Horreum performance test",
+  "datastoreId": null,
+  "timelineLabels": [],
+  "fingerprintLabels": [],
+  "transformers": [],
+  "notificationsEnabled": true,
+  "variables": [
+    {
+      "name": "max_response_time",
+      "order": 0,
+      "labels": [
+        "hhf.max_response_time"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "99_99_response_time",
+      "order": 1,
+      "labels": [
+        "hhf.percentile_99_99"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 5
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "99_9_response_time",
+      "order": 2,
+      "labels": [
+        "hhf.percentile_99_9"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 5
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "99_response_time",
+      "order": 4,
+      "labels": [
+        "hhf.percentile_99"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 5
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "mean_response_time",
+      "order": 5,
+      "labels": [
+        "hhf.mean_response_time"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 5
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "std_dev_response_time",
+      "order": 5,
+      "labels": [
+        "hhf.std_dev_response_time"
+      ],
+      "changeDetection": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 1,
+            "threshold": 0.2,
+            "minPrevious": 1
+          }
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "model": "relativeDifference",
+            "filter": "mean",
+            "window": 5,
+            "threshold": 0.1,
+            "minPrevious": 5
+          }
+        }
+      ]
+    }
+  ],
+  "missingDataRules": [],
+  "experiments": [
+    {
+      "name": "Pull Request Experiment",
+      "selectorLabels": [
+        "pb.pull_request_number"
+      ],
+      "selectorFilter": "value => value != null && value != ''",
+      "baselineLabels": [
+        "pb.pull_request_number"
+      ],
+      "baselineFilter": "value => value == null || value === ''",
+      "comparisons": [
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "max_response_time"
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "99_99_response_time"
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "99_9_response_time"
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "99_response_time"
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "mean_response_time"
+        },
+        {
+          "model": "relativeDifference",
+          "config": {
+            "threshold": 0.1,
+            "greaterBetter": false,
+            "maxBaselineDatasets": 1
+          },
+          "variableName": "std_dev_response_time"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "event": "run/new",
+      "type": "http",
+      "config": {
+        "type": "http",
+        "url": "http://mwperf-server17.perf.lab.eng.rdu2.redhat.com:8080/horreum"
+      },
+      "secrets": {},
+      "active": true,
+      "runAlways": false
+    }
+  ],
+  "subscriptions": null
+}

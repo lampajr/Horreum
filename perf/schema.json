@@ -1,0 +1,263 @@
+{
+  "access": "PUBLIC",
+  "owner": "perf-team",
+  "uri": "uri:horreum-perf:0.1",
+  "name": "Horreum Perf schema v0.1",
+  "description": "Schema for Horreum performance testing using Hyperfoil",
+  "labels": [
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.benchmark",
+      "extractors": [
+        {
+          "name": "hhf_benchmark",
+          "jsonpath": "$.state.HF_BENCHMARK_NAME",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.horreum_version",
+      "extractors": [
+        {
+          "name": "hhf_horreum_version",
+          "jsonpath": "$.state.HORREUM_VERSION",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.errors",
+      "extractors": [
+        {
+          "name": "hhf_errors",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.info.errors",
+          "isarray": false
+        }
+      ],
+      "_function": "errors => errors.length",
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.failures",
+      "extractors": [
+        {
+          "name": "hhf_failures",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.failures",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.max_response_time",
+      "extractors": [
+        {
+          "name": "hhf_max_response_time",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.maxResponseTime",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.mean_response_time",
+      "extractors": [
+        {
+          "name": "hhf_mean_response_time",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.meanResponseTime",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.min_response_time",
+      "extractors": [
+        {
+          "name": "hhf_min_response_time",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.minResponseTime",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.percentile_50",
+      "extractors": [
+        {
+          "name": "hhf_percentile_50",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.percentileResponseTime.\"50.0\"",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.percentile_90",
+      "extractors": [
+        {
+          "name": "hhf_percentile_90",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.percentileResponseTime.\"90.0\"",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.percentile_99",
+      "extractors": [
+        {
+          "name": "hhf_percentile_99",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.percentileResponseTime.\"99.0\"",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.percentile_99_9",
+      "extractors": [
+        {
+          "name": "hhf_percentile_99_9",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.percentileResponseTime.\"99.9\"",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.percentile_99_99",
+      "extractors": [
+        {
+          "name": "hhf_percentile_99_99",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.percentileResponseTime.\"99.99\"",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.phase",
+      "extractors": [
+        {
+          "name": "hhf_phase_name",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").name",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.request_count",
+      "extractors": [
+        {
+          "name": "hhf_request_count",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.requestCount",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "hhf.std_dev_response_time",
+      "extractors": [
+        {
+          "name": "hhf_std_dev_response_time",
+          "jsonpath": "$.state.*.HF_REPORT_ALL.stats[*] ? (@.name!=\"warmUp\").total.summary.stdDevResponseTime",
+          "isarray": false
+        }
+      ],
+      "filtering": false,
+      "metrics": true
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "pb.job_id",
+      "extractors": [
+        {
+          "name": "pb_job_id",
+          "jsonpath": "$.state.JOB_ID",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "pb.pull_request_number",
+      "extractors": [
+        {
+          "name": "pb_pull_request_number",
+          "jsonpath": "$.state.PULL_REQUEST_NUMBER",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    },
+    {
+      "access": "PUBLIC",
+      "owner": "perf-team",
+      "name": "pb.repo_full_name",
+      "extractors": [
+        {
+          "name": "pb_repo_full_name",
+          "jsonpath": "$.state.REPO_FULL_NAME",
+          "isarray": false
+        }
+      ],
+      "filtering": true,
+      "metrics": false
+    }
+  ],
+  "transformers": []
+}

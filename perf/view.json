@@ -1,0 +1,106 @@
+{
+  "id": -1,
+  "name": "Metrics",
+  "testId": "390",
+  "components": [
+    {
+      "id": -1,
+      "headerOrder": 0,
+      "headerName": "PR",
+      "labels": [
+        "pb.pull_request_number"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 1,
+      "headerName": "Commit",
+      "labels": [
+        "hhf.horreum_version"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 2,
+      "headerName": "Benchmark",
+      "labels": [
+        "hhf.benchmark"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 3,
+      "headerName": "Request Count",
+      "labels": [
+        "hhf.request_count"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 4,
+      "headerName": "Max Resp Time",
+      "labels": [
+        "hhf.max_response_time"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 5,
+      "headerName": "Mean Resp Time",
+      "labels": [
+        "hhf.mean_response_time"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 6,
+      "headerName": "90 Percentile",
+      "labels": [
+        "hhf.percentile_90"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 7,
+      "headerName": "99 Percentile",
+      "labels": [
+        "hhf.percentile_99"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 8,
+      "headerName": "99.9 Percentile",
+      "labels": [
+        "hhf.percentile_99_9"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 9,
+      "headerName": "99.99 Percentile",
+      "labels": [
+        "hhf.percentile_99_99"
+      ],
+      "render": ""
+    },
+    {
+      "id": -1,
+      "headerOrder": 10,
+      "headerName": "Std Dev",
+      "labels": [
+        "hhf.std_dev_response_time"
+      ],
+      "render": ""
+    }
+  ]
+}

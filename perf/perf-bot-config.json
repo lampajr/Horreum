@@ -1,0 +1,37 @@
+{
+  "id": "horreum-perf",
+  "repoFullName": "Hyperfoil/Horreum",
+  "repositoryUrl": "https://github.com/Hyperfoil/Horreum",
+  "description": "Horreum performance testing enabled for Shift Left initiative",
+  "authorizedUsers": [
+    "lampajr",
+    "johnaohara",
+    "barreiro",
+    "stalep",
+    "willr3"
+  ],
+  "datastoreApiKey": "HUSR_2F7D21B9_2F91_48C7_B047_00B50211442D",
+  "jobPlatformUser": "alampare",
+  "jobPlatformApiKey": "112b69a7c444305cb509e292eb25af2579",
+  "jobs": {
+    "perf": {
+      "name": "perf",
+      "platformJobId": "shift-left/horreum-perf",
+      "pullRequestNumberParam": "PULL_REQUEST_NUMBER",
+      "repoFullNameParam": "REPO_FULL_NAME",
+      "repoCommitParam": "HORREUM_VERSION",
+      "datastoreConfig": {
+        "testId": "390",
+        "viewId": "5354490"
+      },
+      "configurableParams": {
+        "UPLOAD_TO_HORREUM": {
+          "name": "UPLOAD_TO_HORREUM"
+        },
+        "HF_BENCHMARK_NAME": {
+          "name": "HF_BENCHMARK_NAME"
+        }
+      }
+    }
+  }
+}
