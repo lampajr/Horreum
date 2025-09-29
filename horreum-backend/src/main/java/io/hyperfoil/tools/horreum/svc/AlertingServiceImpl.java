@@ -616,7 +616,7 @@ public class AlertingServiceImpl implements AlertingService {
         runChangeDetection(variable, fingerprint, notify, false, lastDatapoint);
     }
 
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    @Transactional
     void runChangeDetection(VariableDAO variable, JsonNode fingerprint, boolean notify, boolean expectExists,
             boolean lastDatapoint) {
         UpTo valid = validUpTo.get(new VarAndFingerprint(variable.id, fingerprint));
@@ -701,25 +701,14 @@ public class AlertingServiceImpl implements AlertingService {
                         model.analyze(dataPoints, detection.config, change -> {
                             logChangeDetectionMessage(variable.testId, datasetId, PersistentLogDAO.DEBUG,
                                     "Change %s detected using datapoints %s", change, reversedAndLimited(dataPoints));
-                            DatasetDAO.Info info = session
-                                    .createNativeQuery(
-                                            "SELECT id, runid as \"runId\", ordinal, testid as \"testId\" FROM dataset WHERE id = ?1",
-                                            Tuple.class)
-                                    .setParameter(1, change.dataset.id)
-                                    .setTupleTransformer((tuples, aliases) -> {
-                                        DatasetDAO.Info i = new DatasetDAO.Info();
-                                        i.id = (int) tuples[0];
-                                        i.runId = (int) tuples[1];
-                                        i.ordinal = (int) tuples[2];
-                                        i.testId = (int) tuples[3];
-                                        return i;
-                                    }).getSingleResult();
+                            Dataset.Info info = DatasetDAO.<DatasetDAO> findByIdOptional(change.dataset.id)
+                                    .map(ds -> new Dataset.Info(ds.id, ds.getRunId(), ds.ordinal, ds.testid)).orElseThrow(
+                                            () -> new RuntimeException("Couldn't find dataset with id " + change.dataset.id));
                             em.persist(change);
                             Hibernate.initialize(change.dataset.run.id);
                             String testName = TestDAO.<TestDAO> findByIdOptional(variable.testId).map(test -> test.name)
                                     .orElse("<unknown>");
-                            Change.Event event = new Change.Event(ChangeMapper.from(change), testName,
-                                    DatasetMapper.fromInfo(info), notify);
+                            Change.Event event = new Change.Event(ChangeMapper.from(change), testName, info, notify);
                             if (mediator.testMode())
                                 Util.registerTxSynchronization(tm, txStatus -> mediator
                                         .publishEvent(AsyncEventChannels.CHANGE_NEW, change.dataset.testid, event));

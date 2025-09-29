@@ -2,7 +2,6 @@ package io.hyperfoil.tools.horreum.entity.data;
 
 import java.time.Instant;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 
 import jakarta.persistence.Basic;
@@ -20,11 +19,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
 
 import org.hibernate.annotations.Type;
-import org.hibernate.query.NativeQuery;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import io.hyperfoil.tools.horreum.entity.FingerprintDAO;
 import io.hyperfoil.tools.horreum.entity.ValidationErrorDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import io.smallrye.common.constraint.NotNull;
@@ -80,17 +79,7 @@ public class DatasetDAO extends OwnedEntityBase {
     }
 
     public String getFingerprint() {
-        @SuppressWarnings("unchecked")
-        List<JsonNode> fingerprintList = getEntityManager()
-                .createNativeQuery("SELECT fingerprint FROM fingerprint WHERE dataset_id = ?")
-                .setParameter(1, id).unwrap(NativeQuery.class)
-                .addScalar("fingerprint", JsonBinaryType.INSTANCE)
-                .getResultList();
-        if (fingerprintList.size() > 0) {
-            return fingerprintList.stream().findFirst().get().toString();
-        } else {
-            return "";
-        }
+        return FingerprintDAO.find("dataset.id", id).firstResultOptional().map(Object::toString).orElse("");
     }
 
     public DatasetDAO.Info getInfo() {
