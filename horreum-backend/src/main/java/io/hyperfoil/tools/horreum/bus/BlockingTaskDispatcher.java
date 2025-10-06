@@ -25,15 +25,14 @@ public class BlockingTaskDispatcher {
 
     public void executeForTest(int testId, Runnable runnable) {
         Runnable task = Util.wrapForBlockingExecution(runnable);
-        vertx.executeBlocking(promise -> {
-            try {
-                TaskQueue queue = taskQueues.computeIfAbsent(testId, TaskQueue::new);
-                queue.executeOrAdd(task);
-            } catch (Exception e) {
-                Log.error("Failed to execute blocking task", e);
-            } finally {
-                promise.complete();
-            }
+        vertx.executeBlocking(() -> {
+            TaskQueue queue = taskQueues.computeIfAbsent(testId, TaskQueue::new);
+            queue.executeOrAdd(task);
+            return true;
+        }).onComplete((res) -> {
+            Log.tracef("Task for %s executed successfully", testId);
+        }).onFailure((e) -> {
+            Log.error("Failed to execute blocking task", e);
         });
     }
 
