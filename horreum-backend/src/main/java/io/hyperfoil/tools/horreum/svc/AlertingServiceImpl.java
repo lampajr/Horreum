@@ -13,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -245,30 +244,29 @@ public class AlertingServiceImpl implements AlertingService {
 
     public void onLabelValuesCalculation(Dataset.LabelsUpdatedEvent event) {
         boolean sendNotifications;
-        DatasetDAO dataset = DatasetDAO.findById(event.datasetId);
-        if (dataset == null) {
+        DatasetDAO dataset = DatasetDAO.<DatasetDAO> findByIdOptional(event.datasetId).orElseThrow(() -> {
             // if this happens, means the dataset has been removed before processing the event
             // no need to retry as the same id will not appear anymore
-            throw new RuntimeException("Cannot find  dataset with id " + event.datasetId);
-        }
+            return new RuntimeException("Cannot find  dataset with id " + event.datasetId);
+        });
 
         if (event.isRecalculation) {
             sendNotifications = false;
         } else {
             try {
                 sendNotifications = (Boolean) em.createNativeQuery("SELECT notificationsenabled FROM test WHERE id = ?")
-                        .setParameter(1, dataset.testid).getSingleResult();
+                        .setParameter(1, event.testId).getSingleResult();
             } catch (NoResultException e) {
                 sendNotifications = true;
             }
         }
 
-        recalculateDatapointsForDataset(dataset, sendNotifications, false, new Recalculation(true, true));
+        recalculateDatapointsForDataset(dataset, sendNotifications, false, new Recalculation(event.labelIds, true, true));
         recalculateMissingDataRules(dataset);
 
         if (mediator.testMode())
             Util.registerTxSynchronization(tm, txStatus -> mediator.publishEvent(AsyncEventChannels.DATASET_UPDATED_LABELS,
-                    event.testId, new Dataset.LabelsUpdatedEvent(event.testId, event.datasetId, event.isRecalculation)));
+                    event.testId, event));
     }
 
     @Transactional
@@ -306,15 +304,30 @@ public class AlertingServiceImpl implements AlertingService {
         new MissingDataRuleResultDAO(ruleId, dataset.id, dataset.start).persist();
     }
 
+    /**
+     * Recalculate the datapoints for the provided dataset.
+     * @param dataset       dataset to recalculate datapoints for
+     * @param notify        whether users should be notified or not when a change is found as part of this recalc
+     * @param debug         enable debug persistent logging
+     * @param recalculation recalculation obj
+     */
     @Transactional
-    void recalculateDatapointsForDataset(DatasetDAO dataset, boolean notify, boolean debug,
-            Recalculation recalculation) {
-        Log.debugf("Analyzing dataset %d (%d/%d)", (long) dataset.id, (long) dataset.runId, dataset.ordinal);
+    void recalculateDatapointsForDataset(DatasetDAO dataset, boolean notify, boolean debug, Recalculation recalculation) {
+        Log.debugf("Analyzing dataset %d (%d/%d)", (long) dataset.id, dataset.runId, dataset.ordinal);
         TestDAO test = TestDAO.findById(dataset.testid);
         if (test == null) {
             Log.errorf("Cannot load test ID %d", dataset.testid);
             return;
         }
+        // TODO: if we updated a subset of labels, check if they are in the filtering_labels, if not
+        // it does not make sense to do this test as nothing should have changed
+
+        ArrayNode fingerprintLabels = test.getFingerprintLabels();
+        if (fingerprintLabels != null) {
+            // TODO: check if the labels that have been modified are fingerprint labels
+            // unfortunately this check can only be performed by name
+        }
+
         if (!testFingerprint(dataset, test.fingerprintFilter)) {
             return;
         }
@@ -326,20 +339,8 @@ public class AlertingServiceImpl implements AlertingService {
         if (filter == null || filter.isBlank()) {
             return true;
         }
-        Optional<JsonNode> result = session
-                .createNativeQuery("SELECT fp.fingerprint FROM fingerprint fp WHERE dataset_id = ?1")
-                .setParameter(1, dataset.id)
-                .addScalar("fingerprint", JsonBinaryType.INSTANCE)
-                .getResultStream().findFirst();
-        JsonNode fingerprint;
-        if (result.isPresent()) {
-            fingerprint = result.get();
-            if (fingerprint.isObject() && fingerprint.size() == 1) {
-                fingerprint = fingerprint.elements().next();
-            }
-        } else {
-            fingerprint = JsonNodeFactory.instance.nullNode();
-        }
+
+        JsonNode fingerprint = dataset.getFingerprint();
         boolean testResult = Util.evaluateTest(filter, fingerprint,
                 value -> {
                     logCalculationMessage(dataset, PersistentLogDAO.ERROR,
@@ -974,8 +975,7 @@ public class AlertingServiceImpl implements AlertingService {
     @Override
     @RolesAllowed(Roles.TESTER)
     @WithRoles
-    public void recalculateDatapoints(int testId, boolean notify,
-            boolean debug, Boolean clearDatapoints, Long from, Long to) {
+    public void recalculateDatapoints(int testId, boolean notify, boolean debug, Boolean clearDatapoints, Long from, Long to) {
         TestDAO test = TestDAO.findById(testId);
         if (test == null) {
             throw ServiceException.notFound("Test " + testId + " does not exist or is not available.");
@@ -992,7 +992,7 @@ public class AlertingServiceImpl implements AlertingService {
     // normally the calculation happens with system privileges anyway.
     @WithRoles(extras = Roles.HORREUM_SYSTEM)
     void startRecalculation(int testId, boolean notify, boolean debug, boolean clearDatapoints, Long from, Long to) {
-        Recalculation recalculation = new Recalculation();
+        Recalculation recalculation = new Recalculation(clearDatapoints);
         Recalculation previous = recalcProgress.putIfAbsent(testId, recalculation);
         while (previous != null) {
             if (!previous.done) {
@@ -1004,7 +1004,6 @@ public class AlertingServiceImpl implements AlertingService {
             }
             previous = recalcProgress.putIfAbsent(testId, recalculation);
         }
-        recalculation.clearDatapoints = clearDatapoints;
 
         try {
             //update fingerprints before starting recalculation
@@ -1369,23 +1368,40 @@ public class AlertingServiceImpl implements AlertingService {
 
     // Note: this class must be public - otherwise when this is used as a parameter to
     // a method in AlertingServiceImpl the interceptors would not be invoked.
+    // This class is meant to track the recalculation progress over time
     public static class Recalculation {
+        // immutable fields
+        final boolean clearDatapoints;
+        // list of labels that have been updated, if null / empty means all labels have been recalculated
+        final Integer[] updatedLabels;
+
+        // mutable fields
         Map<Integer, String> datasets = Collections.emptyMap();
         int progress;
         boolean done;
         public int errors;
 
         boolean lastDatapoint;
-        boolean clearDatapoints;
 
         Map<Integer, DatasetDAO.Info> datasetsWithoutValue = new HashMap<>();
 
         public Recalculation() {
+            updatedLabels = null;
+            clearDatapoints = false;
+        }
+
+        public Recalculation(boolean clearDatapoints) {
+            this(false, clearDatapoints);
         }
 
         public Recalculation(boolean lastDatapoint, boolean clearDatapoints) {
+            this(null, lastDatapoint, clearDatapoints);
+        }
+
+        public Recalculation(Integer[] updatedLabels, boolean lastDatapoint, boolean clearDatapoints) {
             this.lastDatapoint = lastDatapoint;
             this.clearDatapoints = clearDatapoints;
+            this.updatedLabels = updatedLabels;
         }
     }
 

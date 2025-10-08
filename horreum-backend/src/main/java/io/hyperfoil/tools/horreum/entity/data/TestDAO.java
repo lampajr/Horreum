@@ -13,11 +13,13 @@ import org.hibernate.type.SqlTypes;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import io.hyperfoil.tools.horreum.api.data.Access;
 import io.hyperfoil.tools.horreum.entity.backend.DatastoreConfigDAO;
 import io.hyperfoil.tools.horreum.hibernate.JsonBinaryType;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.logging.Log;
 
 @Entity(name = "test")
 @JsonIgnoreType
@@ -76,6 +78,19 @@ public class TestDAO extends PanacheEntityBase {
     @NotNull
     @Column(columnDefinition = "boolean default true")
     public Boolean notificationsEnabled;
+
+    public ArrayNode getFingerprintLabels() {
+        if (fingerprintLabels == null) {
+            return null;
+        }
+
+        if (fingerprintLabels.isArray()) {
+            return (ArrayNode) fingerprintLabels;
+        } else {
+            Log.warnf("Expecting array of labels for test %d, but got %s", id, fingerprintLabels);
+            return null;
+        }
+    }
 
     public void ensureLinked() {
         if (views != null) {

@@ -34,7 +34,8 @@ public class ChangeToMarkdown implements BodyFormatter {
         }
         Change.Event event = (Change.Event) payload;
         Change change = event.change;
-        String fingerprint = DatasetDAO.getEntityManager().getReference(DatasetDAO.class, change.dataset.id).getFingerprint();
+        String fingerprint = DatasetDAO.getEntityManager().getReference(DatasetDAO.class, change.dataset.id)
+                .getFingerprintAsString();
         return template
                 .data("testName", event.testName)
                 .data("testNameEncoded", URLEncoder.encode(event.testName, StandardCharsets.UTF_8))

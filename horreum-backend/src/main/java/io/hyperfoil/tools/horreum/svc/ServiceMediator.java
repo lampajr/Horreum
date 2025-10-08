@@ -167,7 +167,8 @@ public class ServiceMediator {
         datasetService.calculateLabelValues(eventNew.testId, eventNew.datasetId, eventNew.labelIds);
         alertingService
                 .onLabelValuesCalculation(
-                        new Dataset.LabelsUpdatedEvent(eventNew.testId, eventNew.datasetId, eventNew.isRecalculation));
+                        new Dataset.LabelsUpdatedEvent(eventNew.testId, eventNew.datasetId, eventNew.isRecalculation,
+                                eventNew.labelIds));
         // if labelId > 0, you are not recomputing the entire dataset label values
         if (eventNew.labelIds == null || eventNew.labelIds.length == 0) {
             this.actionService.onDatasetLabelsComputed(eventNew.testId, eventNew.datasetId);

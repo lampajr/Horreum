@@ -111,15 +111,21 @@ public class Dataset extends ProtectedTimeType {
     public static class LabelsUpdatedEvent {
         public int testId;
         public int datasetId;
+        public Integer[] labelIds;
         public boolean isRecalculation;
 
         public LabelsUpdatedEvent() {
         }
 
         public LabelsUpdatedEvent(int testId, int datasetId, boolean isRecalculation) {
+            this(testId, datasetId, isRecalculation, new Integer[] {});
+        }
+
+        public LabelsUpdatedEvent(int testId, int datasetId, boolean isRecalculation, Integer[] labelIds) {
             this.testId = testId;
             this.datasetId = datasetId;
             this.isRecalculation = isRecalculation;
+            this.labelIds = labelIds;
         }
 
         @Override
@@ -127,6 +133,7 @@ public class Dataset extends ProtectedTimeType {
             return "LabelsUpdatedEvent{" +
                     "testId=" + testId +
                     ", datasetId=" + datasetId +
+                    ", labelIds=" + Arrays.toString(labelIds) +
                     ", isRecalculation=" + isRecalculation +
                     '}';
         }

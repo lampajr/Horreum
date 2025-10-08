@@ -36,7 +36,7 @@ public class EventAggregator {
     public synchronized void onNewChange(Change.Event event) {
         datasetChanges.computeIfAbsent(event.change.dataset.id, id -> {
             String fingerprint = DatasetDAO.getEntityManager().getReference(DatasetDAO.class, event.change.dataset.id)
-                    .getFingerprint();
+                    .getFingerprintAsString();
             return new DatasetChanges(event.change.dataset, fingerprint, event.testName, event.notify);
         }).addChange(event);
         handleDatasetChanges();

@@ -104,7 +104,7 @@ public class NotificationServiceImpl implements NotificationService {
         Log.debugf("Received missing values event in test %d (%s), run %d, variables %s", event.dataset.testId, testName,
                 event.dataset.id, event.variables);
 
-        String fingerprint = em.getReference(DatasetDAO.class, event.dataset.id).getFingerprint();
+        String fingerprint = em.getReference(DatasetDAO.class, event.dataset.id).getFingerprintAsString();
         notifyAll(event.dataset.testId, n -> n.notifyMissingValues(testName, fingerprint, event));
     }
 
