@@ -6,8 +6,9 @@ import { State } from "./store"
 import { UserData } from "./api"
 import { ThunkDispatch } from "redux-thunk"
 import Keycloak, {KeycloakProfile} from "keycloak-js";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import LoginModal from "./Login";
+import {useAuth} from "react-oidc-context";
 
 export const INIT = "auth/INIT"
 export const UPDATE_DEFAULT_TEAM = "auth/UPDATE_DEFAULT_TEAM"
@@ -180,40 +181,20 @@ export const TryLoginAgain = () => {
 }
 
 export const LoginLogout = () => {
-    const oidc = useSelector(oidcSelector)
-    const keycloak = useSelector(keycloakSelector)
-    // for some reason isAuthenticatedSelector would not return correct value at times (Redux bug?)
-    const authenticated = useSelector(isAuthenticatedSelector)
-    const [loginModalOpen, setLoginModalOpen] = useState(false)
-    const dispatch = useDispatch()
-    if (!keycloak) {
-        return <Button isDisabled>Cannot log in</Button>
-    }
-    if (authenticated) {
+    const auth = useAuth()
+    // console.log(auth)
+
+    console.log("Test", auth.isAuthenticated)
+    if (auth.isAuthenticated) {
         return (
-            <Button
-                onClick={() => {
-                    if (oidc) {
-                        keycloak?.logout({ redirectUri: window.location.origin })
-                    } else {
-                        window.location.replace(window.location.origin)
-                    }
-                    dispatch({ type: AFTER_LOGOUT })
-                }}
-            >
+            <Button onClick={() => void auth.removeUser()}>
                 Log out
             </Button>
         )
     } else {
-        return <>
-            <Button onClick={() => {oidc ? keycloak?.login() : setLoginModalOpen(true)}}>Log in</Button>
-            <LoginModal
-                isOpen={loginModalOpen}
-                username={""}
-                password={""}
-                onClose={() => setLoginModalOpen(false)}
-            />
-        </>
+        return (
+            <Button onClick={() => void auth.signinRedirect()}>Log in</Button>
+        )
     }
 }
 

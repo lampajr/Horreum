@@ -84,7 +84,7 @@ const router = createBrowserRouter(
 );
 
 export default function App() {
-    initKeycloak(store.getState())
+    // initKeycloak(store.getState())
 
     return (
         <Provider store={store}>
